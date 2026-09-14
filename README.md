@@ -7,3 +7,5 @@
 本目录作为整体 Git 仓库。`LFMN/` 原有 Git 元数据保存在本地 `LFMN/.git_upstream_backup/`，不会同步到 GitHub。每次由 Codex 修改并验证的代码或研究文档应独立提交，提交说明写明改动目的与验证情况；如果 GitHub 推送失败，本地提交仍保留，并在答复中说明。
 
 LFMN 原始项目来自 [hehesjtu/LFMN](https://github.com/hehesjtu/LFMN)。原始方法和预训练权重应归属并引用原作者；本仓库不声称它们为原创。
+
+第一轮数据下载和核验步骤见 [数据集下载与首轮实验准备.md](数据集下载与首轮实验准备.md)。
