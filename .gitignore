@@ -1,0 +1,18 @@
+# Local datasets, experiment outputs, and package caches
+/datasets/
+/experiment/
+/.pip-cache/
+/.npm-cache/
+/repro/docx_gen/
+/repro/catanet_ref/
+/LFMN/.git_upstream_backup/
+
+# Generated Python and model-inspection files
+**/__pycache__/
+*.py[cod]
+/.venv/
+/LFMN/model/_str.txt
+
+# The paper is retained locally; link to its publication instead of republishing it
+/LFMN.pdf
+/LFMN_paper_text.txt

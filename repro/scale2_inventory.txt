@@ -1,0 +1,433 @@
+fea.net.0.weight                                        shape=(8, 3, 3, 3)                 numel=216
+fea.net.2.weight                                        shape=(16, 8, 3, 3)                numel=1152
+fea.net.4.weight                                        shape=(32, 16, 3, 3)               numel=4608
+sfmls.0.reduce.weight                                   shape=(12, 32, 1, 1)               numel=384
+sfmls.0.reduce.bias                                     shape=(12,)                        numel=12
+sfmls.0.dw.weight                                       shape=(12, 1, 3, 3)                numel=108
+sfmls.0.dw.bias                                         shape=(12,)                        numel=12
+sfmls.0.expand_a.weight                                 shape=(48, 12, 1, 1)               numel=576
+sfmls.0.expand_a.bias                                   shape=(48,)                        numel=48
+sfmls.0.expand_b.weight                                 shape=(48, 12, 1, 1)               numel=576
+sfmls.0.expand_b.bias                                   shape=(48,)                        numel=48
+sfmls.1.reduce.weight                                   shape=(12, 32, 1, 1)               numel=384
+sfmls.1.reduce.bias                                     shape=(12,)                        numel=12
+sfmls.1.dw.weight                                       shape=(12, 1, 3, 3)                numel=108
+sfmls.1.dw.bias                                         shape=(12,)                        numel=12
+sfmls.1.expand_a.weight                                 shape=(48, 12, 1, 1)               numel=576
+sfmls.1.expand_a.bias                                   shape=(48,)                        numel=48
+sfmls.1.expand_b.weight                                 shape=(48, 12, 1, 1)               numel=576
+sfmls.1.expand_b.bias                                   shape=(48,)                        numel=48
+sfmls.2.reduce.weight                                   shape=(12, 32, 1, 1)               numel=384
+sfmls.2.reduce.bias                                     shape=(12,)                        numel=12
+sfmls.2.dw.weight                                       shape=(12, 1, 3, 3)                numel=108
+sfmls.2.dw.bias                                         shape=(12,)                        numel=12
+sfmls.2.expand_a.weight                                 shape=(48, 12, 1, 1)               numel=576
+sfmls.2.expand_a.bias                                   shape=(48,)                        numel=48
+sfmls.2.expand_b.weight                                 shape=(48, 12, 1, 1)               numel=576
+sfmls.2.expand_b.bias                                   shape=(48,)                        numel=48
+sfmls.3.reduce.weight                                   shape=(12, 32, 1, 1)               numel=384
+sfmls.3.reduce.bias                                     shape=(12,)                        numel=12
+sfmls.3.dw.weight                                       shape=(12, 1, 3, 3)                numel=108
+sfmls.3.dw.bias                                         shape=(12,)                        numel=12
+sfmls.3.expand_a.weight                                 shape=(48, 12, 1, 1)               numel=576
+sfmls.3.expand_a.bias                                   shape=(48,)                        numel=48
+sfmls.3.expand_b.weight                                 shape=(48, 12, 1, 1)               numel=576
+sfmls.3.expand_b.bias                                   shape=(48,)                        numel=48
+sfmls.4.reduce.weight                                   shape=(12, 32, 1, 1)               numel=384
+sfmls.4.reduce.bias                                     shape=(12,)                        numel=12
+sfmls.4.dw.weight                                       shape=(12, 1, 3, 3)                numel=108
+sfmls.4.dw.bias                                         shape=(12,)                        numel=12
+sfmls.4.expand_a.weight                                 shape=(48, 12, 1, 1)               numel=576
+sfmls.4.expand_a.bias                                   shape=(48,)                        numel=48
+sfmls.4.expand_b.weight                                 shape=(48, 12, 1, 1)               numel=576
+sfmls.4.expand_b.bias                                   shape=(48,)                        numel=48
+sfmls.5.reduce.weight                                   shape=(12, 32, 1, 1)               numel=384
+sfmls.5.reduce.bias                                     shape=(12,)                        numel=12
+sfmls.5.dw.weight                                       shape=(12, 1, 3, 3)                numel=108
+sfmls.5.dw.bias                                         shape=(12,)                        numel=12
+sfmls.5.expand_a.weight                                 shape=(48, 12, 1, 1)               numel=576
+sfmls.5.expand_a.bias                                   shape=(48,)                        numel=48
+sfmls.5.expand_b.weight                                 shape=(48, 12, 1, 1)               numel=576
+sfmls.5.expand_b.bias                                   shape=(48,)                        numel=48
+sfmls.6.reduce.weight                                   shape=(12, 32, 1, 1)               numel=384
+sfmls.6.reduce.bias                                     shape=(12,)                        numel=12
+sfmls.6.dw.weight                                       shape=(12, 1, 3, 3)                numel=108
+sfmls.6.dw.bias                                         shape=(12,)                        numel=12
+sfmls.6.expand_a.weight                                 shape=(48, 12, 1, 1)               numel=576
+sfmls.6.expand_a.bias                                   shape=(48,)                        numel=48
+sfmls.6.expand_b.weight                                 shape=(48, 12, 1, 1)               numel=576
+sfmls.6.expand_b.bias                                   shape=(48,)                        numel=48
+sfmls.7.reduce.weight                                   shape=(12, 32, 1, 1)               numel=384
+sfmls.7.reduce.bias                                     shape=(12,)                        numel=12
+sfmls.7.dw.weight                                       shape=(12, 1, 3, 3)                numel=108
+sfmls.7.dw.bias                                         shape=(12,)                        numel=12
+sfmls.7.expand_a.weight                                 shape=(48, 12, 1, 1)               numel=576
+sfmls.7.expand_a.bias                                   shape=(48,)                        numel=48
+sfmls.7.expand_b.weight                                 shape=(48, 12, 1, 1)               numel=576
+sfmls.7.expand_b.bias                                   shape=(48,)                        numel=48
+esas.0.conv1.weight                                     shape=(12, 48, 1, 1)               numel=576
+esas.0.conv1.bias                                       shape=(12,)                        numel=12
+esas.0.conv_f.weight                                    shape=(12, 12, 1, 1)               numel=144
+esas.0.conv_f.bias                                      shape=(12,)                        numel=12
+esas.0.conv2.weight                                     shape=(12, 12, 3, 3)               numel=1296
+esas.0.conv2.bias                                       shape=(12,)                        numel=12
+esas.0.conv3.weight                                     shape=(12, 12, 3, 3)               numel=1296
+esas.0.conv3.bias                                       shape=(12,)                        numel=12
+esas.0.conv4.weight                                     shape=(48, 12, 1, 1)               numel=576
+esas.0.conv4.bias                                       shape=(48,)                        numel=48
+esas.1.conv1.weight                                     shape=(12, 48, 1, 1)               numel=576
+esas.1.conv1.bias                                       shape=(12,)                        numel=12
+esas.1.conv_f.weight                                    shape=(12, 12, 1, 1)               numel=144
+esas.1.conv_f.bias                                      shape=(12,)                        numel=12
+esas.1.conv2.weight                                     shape=(12, 12, 3, 3)               numel=1296
+esas.1.conv2.bias                                       shape=(12,)                        numel=12
+esas.1.conv3.weight                                     shape=(12, 12, 3, 3)               numel=1296
+esas.1.conv3.bias                                       shape=(12,)                        numel=12
+esas.1.conv4.weight                                     shape=(48, 12, 1, 1)               numel=576
+esas.1.conv4.bias                                       shape=(48,)                        numel=48
+esas.2.conv1.weight                                     shape=(12, 48, 1, 1)               numel=576
+esas.2.conv1.bias                                       shape=(12,)                        numel=12
+esas.2.conv_f.weight                                    shape=(12, 12, 1, 1)               numel=144
+esas.2.conv_f.bias                                      shape=(12,)                        numel=12
+esas.2.conv2.weight                                     shape=(12, 12, 3, 3)               numel=1296
+esas.2.conv2.bias                                       shape=(12,)                        numel=12
+esas.2.conv3.weight                                     shape=(12, 12, 3, 3)               numel=1296
+esas.2.conv3.bias                                       shape=(12,)                        numel=12
+esas.2.conv4.weight                                     shape=(48, 12, 1, 1)               numel=576
+esas.2.conv4.bias                                       shape=(48,)                        numel=48
+esas.3.conv1.weight                                     shape=(12, 48, 1, 1)               numel=576
+esas.3.conv1.bias                                       shape=(12,)                        numel=12
+esas.3.conv_f.weight                                    shape=(12, 12, 1, 1)               numel=144
+esas.3.conv_f.bias                                      shape=(12,)                        numel=12
+esas.3.conv2.weight                                     shape=(12, 12, 3, 3)               numel=1296
+esas.3.conv2.bias                                       shape=(12,)                        numel=12
+esas.3.conv3.weight                                     shape=(12, 12, 3, 3)               numel=1296
+esas.3.conv3.bias                                       shape=(12,)                        numel=12
+esas.3.conv4.weight                                     shape=(48, 12, 1, 1)               numel=576
+esas.3.conv4.bias                                       shape=(48,)                        numel=48
+esas.4.conv1.weight                                     shape=(12, 48, 1, 1)               numel=576
+esas.4.conv1.bias                                       shape=(12,)                        numel=12
+esas.4.conv_f.weight                                    shape=(12, 12, 1, 1)               numel=144
+esas.4.conv_f.bias                                      shape=(12,)                        numel=12
+esas.4.conv2.weight                                     shape=(12, 12, 3, 3)               numel=1296
+esas.4.conv2.bias                                       shape=(12,)                        numel=12
+esas.4.conv3.weight                                     shape=(12, 12, 3, 3)               numel=1296
+esas.4.conv3.bias                                       shape=(12,)                        numel=12
+esas.4.conv4.weight                                     shape=(48, 12, 1, 1)               numel=576
+esas.4.conv4.bias                                       shape=(48,)                        numel=48
+esas.5.conv1.weight                                     shape=(12, 48, 1, 1)               numel=576
+esas.5.conv1.bias                                       shape=(12,)                        numel=12
+esas.5.conv_f.weight                                    shape=(12, 12, 1, 1)               numel=144
+esas.5.conv_f.bias                                      shape=(12,)                        numel=12
+esas.5.conv2.weight                                     shape=(12, 12, 3, 3)               numel=1296
+esas.5.conv2.bias                                       shape=(12,)                        numel=12
+esas.5.conv3.weight                                     shape=(12, 12, 3, 3)               numel=1296
+esas.5.conv3.bias                                       shape=(12,)                        numel=12
+esas.5.conv4.weight                                     shape=(48, 12, 1, 1)               numel=576
+esas.5.conv4.bias                                       shape=(48,)                        numel=48
+esas.6.conv1.weight                                     shape=(12, 48, 1, 1)               numel=576
+esas.6.conv1.bias                                       shape=(12,)                        numel=12
+esas.6.conv_f.weight                                    shape=(12, 12, 1, 1)               numel=144
+esas.6.conv_f.bias                                      shape=(12,)                        numel=12
+esas.6.conv2.weight                                     shape=(12, 12, 3, 3)               numel=1296
+esas.6.conv2.bias                                       shape=(12,)                        numel=12
+esas.6.conv3.weight                                     shape=(12, 12, 3, 3)               numel=1296
+esas.6.conv3.bias                                       shape=(12,)                        numel=12
+esas.6.conv4.weight                                     shape=(48, 12, 1, 1)               numel=576
+esas.6.conv4.bias                                       shape=(48,)                        numel=48
+esas.7.conv1.weight                                     shape=(12, 48, 1, 1)               numel=576
+esas.7.conv1.bias                                       shape=(12,)                        numel=12
+esas.7.conv_f.weight                                    shape=(12, 12, 1, 1)               numel=144
+esas.7.conv_f.bias                                      shape=(12,)                        numel=12
+esas.7.conv2.weight                                     shape=(12, 12, 3, 3)               numel=1296
+esas.7.conv2.bias                                       shape=(12,)                        numel=12
+esas.7.conv3.weight                                     shape=(12, 12, 3, 3)               numel=1296
+esas.7.conv3.bias                                       shape=(12,)                        numel=12
+esas.7.conv4.weight                                     shape=(48, 12, 1, 1)               numel=576
+esas.7.conv4.bias                                       shape=(48,)                        numel=48
+first_conv.weight                                       shape=(48, 3, 3, 3)                numel=1296
+first_conv.bias                                         shape=(48,)                        numel=48
+blocks.0.0.means                                        shape=(16, 48)                     numel=768
+blocks.0.0.initted                                      shape=()                           numel=1
+blocks.0.0.norm.weight                                  shape=(48,)                        numel=48
+blocks.0.0.norm.bias                                    shape=(48,)                        numel=48
+blocks.0.0.mlp.norm.weight                              shape=(48,)                        numel=48
+blocks.0.0.mlp.norm.bias                                shape=(48,)                        numel=48
+blocks.0.0.mlp.fn.fc1.weight                            shape=(96, 48)                     numel=4608
+blocks.0.0.mlp.fn.fc1.bias                              shape=(96,)                        numel=96
+blocks.0.0.mlp.fn.dwconv.depthwise_conv.0.weight        shape=(96, 1, 5, 5)                numel=2400
+blocks.0.0.mlp.fn.dwconv.depthwise_conv.0.bias          shape=(96,)                        numel=96
+blocks.0.0.mlp.fn.fc2.weight                            shape=(48, 96)                     numel=4608
+blocks.0.0.mlp.fn.fc2.bias                              shape=(48,)                        numel=48
+blocks.0.0.irca_attn.to_k.weight                        shape=(36, 48)                     numel=1728
+blocks.0.0.irca_attn.to_v.weight                        shape=(48, 48)                     numel=2304
+blocks.0.0.iasa_attn.to_q.weight                        shape=(36, 48)                     numel=1728
+blocks.0.0.iasa_attn.to_k.weight                        shape=(36, 48)                     numel=1728
+blocks.0.0.iasa_attn.to_v.weight                        shape=(48, 48)                     numel=2304
+blocks.0.0.iasa_attn.proj.weight                        shape=(48, 48)                     numel=2304
+blocks.0.0.conv1x1.weight                               shape=(48, 48, 1, 1)               numel=2304
+blocks.0.1.layer.0.norm.weight                          shape=(48,)                        numel=48
+blocks.0.1.layer.0.norm.bias                            shape=(48,)                        numel=48
+blocks.0.1.layer.0.fn.to_q.weight                       shape=(36, 48)                     numel=1728
+blocks.0.1.layer.0.fn.to_k.weight                       shape=(36, 48)                     numel=1728
+blocks.0.1.layer.0.fn.to_v.weight                       shape=(48, 48)                     numel=2304
+blocks.0.1.layer.0.fn.proj.weight                       shape=(48, 48)                     numel=2304
+blocks.0.1.layer.1.norm.weight                          shape=(48,)                        numel=48
+blocks.0.1.layer.1.norm.bias                            shape=(48,)                        numel=48
+blocks.0.1.layer.1.fn.fc1.weight                        shape=(96, 48)                     numel=4608
+blocks.0.1.layer.1.fn.fc1.bias                          shape=(96,)                        numel=96
+blocks.0.1.layer.1.fn.dwconv.depthwise_conv.0.weight    shape=(96, 1, 5, 5)                numel=2400
+blocks.0.1.layer.1.fn.dwconv.depthwise_conv.0.bias      shape=(96,)                        numel=96
+blocks.0.1.layer.1.fn.fc2.weight                        shape=(48, 96)                     numel=4608
+blocks.0.1.layer.1.fn.fc2.bias                          shape=(48,)                        numel=48
+blocks.1.0.means                                        shape=(32, 48)                     numel=1536
+blocks.1.0.initted                                      shape=()                           numel=1
+blocks.1.0.norm.weight                                  shape=(48,)                        numel=48
+blocks.1.0.norm.bias                                    shape=(48,)                        numel=48
+blocks.1.0.mlp.norm.weight                              shape=(48,)                        numel=48
+blocks.1.0.mlp.norm.bias                                shape=(48,)                        numel=48
+blocks.1.0.mlp.fn.fc1.weight                            shape=(96, 48)                     numel=4608
+blocks.1.0.mlp.fn.fc1.bias                              shape=(96,)                        numel=96
+blocks.1.0.mlp.fn.dwconv.depthwise_conv.0.weight        shape=(96, 1, 5, 5)                numel=2400
+blocks.1.0.mlp.fn.dwconv.depthwise_conv.0.bias          shape=(96,)                        numel=96
+blocks.1.0.mlp.fn.fc2.weight                            shape=(48, 96)                     numel=4608
+blocks.1.0.mlp.fn.fc2.bias                              shape=(48,)                        numel=48
+blocks.1.0.irca_attn.to_k.weight                        shape=(36, 48)                     numel=1728
+blocks.1.0.irca_attn.to_v.weight                        shape=(48, 48)                     numel=2304
+blocks.1.0.iasa_attn.to_q.weight                        shape=(36, 48)                     numel=1728
+blocks.1.0.iasa_attn.to_k.weight                        shape=(36, 48)                     numel=1728
+blocks.1.0.iasa_attn.to_v.weight                        shape=(48, 48)                     numel=2304
+blocks.1.0.iasa_attn.proj.weight                        shape=(48, 48)                     numel=2304
+blocks.1.0.conv1x1.weight                               shape=(48, 48, 1, 1)               numel=2304
+blocks.1.1.layer.0.norm.weight                          shape=(48,)                        numel=48
+blocks.1.1.layer.0.norm.bias                            shape=(48,)                        numel=48
+blocks.1.1.layer.0.fn.to_q.weight                       shape=(36, 48)                     numel=1728
+blocks.1.1.layer.0.fn.to_k.weight                       shape=(36, 48)                     numel=1728
+blocks.1.1.layer.0.fn.to_v.weight                       shape=(48, 48)                     numel=2304
+blocks.1.1.layer.0.fn.proj.weight                       shape=(48, 48)                     numel=2304
+blocks.1.1.layer.1.norm.weight                          shape=(48,)                        numel=48
+blocks.1.1.layer.1.norm.bias                            shape=(48,)                        numel=48
+blocks.1.1.layer.1.fn.fc1.weight                        shape=(96, 48)                     numel=4608
+blocks.1.1.layer.1.fn.fc1.bias                          shape=(96,)                        numel=96
+blocks.1.1.layer.1.fn.dwconv.depthwise_conv.0.weight    shape=(96, 1, 5, 5)                numel=2400
+blocks.1.1.layer.1.fn.dwconv.depthwise_conv.0.bias      shape=(96,)                        numel=96
+blocks.1.1.layer.1.fn.fc2.weight                        shape=(48, 96)                     numel=4608
+blocks.1.1.layer.1.fn.fc2.bias                          shape=(48,)                        numel=48
+blocks.2.0.means                                        shape=(64, 48)                     numel=3072
+blocks.2.0.initted                                      shape=()                           numel=1
+blocks.2.0.norm.weight                                  shape=(48,)                        numel=48
+blocks.2.0.norm.bias                                    shape=(48,)                        numel=48
+blocks.2.0.mlp.norm.weight                              shape=(48,)                        numel=48
+blocks.2.0.mlp.norm.bias                                shape=(48,)                        numel=48
+blocks.2.0.mlp.fn.fc1.weight                            shape=(96, 48)                     numel=4608
+blocks.2.0.mlp.fn.fc1.bias                              shape=(96,)                        numel=96
+blocks.2.0.mlp.fn.dwconv.depthwise_conv.0.weight        shape=(96, 1, 5, 5)                numel=2400
+blocks.2.0.mlp.fn.dwconv.depthwise_conv.0.bias          shape=(96,)                        numel=96
+blocks.2.0.mlp.fn.fc2.weight                            shape=(48, 96)                     numel=4608
+blocks.2.0.mlp.fn.fc2.bias                              shape=(48,)                        numel=48
+blocks.2.0.irca_attn.to_k.weight                        shape=(36, 48)                     numel=1728
+blocks.2.0.irca_attn.to_v.weight                        shape=(48, 48)                     numel=2304
+blocks.2.0.iasa_attn.to_q.weight                        shape=(36, 48)                     numel=1728
+blocks.2.0.iasa_attn.to_k.weight                        shape=(36, 48)                     numel=1728
+blocks.2.0.iasa_attn.to_v.weight                        shape=(48, 48)                     numel=2304
+blocks.2.0.iasa_attn.proj.weight                        shape=(48, 48)                     numel=2304
+blocks.2.0.conv1x1.weight                               shape=(48, 48, 1, 1)               numel=2304
+blocks.2.1.layer.0.norm.weight                          shape=(48,)                        numel=48
+blocks.2.1.layer.0.norm.bias                            shape=(48,)                        numel=48
+blocks.2.1.layer.0.fn.to_q.weight                       shape=(36, 48)                     numel=1728
+blocks.2.1.layer.0.fn.to_k.weight                       shape=(36, 48)                     numel=1728
+blocks.2.1.layer.0.fn.to_v.weight                       shape=(48, 48)                     numel=2304
+blocks.2.1.layer.0.fn.proj.weight                       shape=(48, 48)                     numel=2304
+blocks.2.1.layer.1.norm.weight                          shape=(48,)                        numel=48
+blocks.2.1.layer.1.norm.bias                            shape=(48,)                        numel=48
+blocks.2.1.layer.1.fn.fc1.weight                        shape=(96, 48)                     numel=4608
+blocks.2.1.layer.1.fn.fc1.bias                          shape=(96,)                        numel=96
+blocks.2.1.layer.1.fn.dwconv.depthwise_conv.0.weight    shape=(96, 1, 5, 5)                numel=2400
+blocks.2.1.layer.1.fn.dwconv.depthwise_conv.0.bias      shape=(96,)                        numel=96
+blocks.2.1.layer.1.fn.fc2.weight                        shape=(48, 96)                     numel=4608
+blocks.2.1.layer.1.fn.fc2.bias                          shape=(48,)                        numel=48
+blocks.3.0.means                                        shape=(128, 48)                    numel=6144
+blocks.3.0.initted                                      shape=()                           numel=1
+blocks.3.0.norm.weight                                  shape=(48,)                        numel=48
+blocks.3.0.norm.bias                                    shape=(48,)                        numel=48
+blocks.3.0.mlp.norm.weight                              shape=(48,)                        numel=48
+blocks.3.0.mlp.norm.bias                                shape=(48,)                        numel=48
+blocks.3.0.mlp.fn.fc1.weight                            shape=(96, 48)                     numel=4608
+blocks.3.0.mlp.fn.fc1.bias                              shape=(96,)                        numel=96
+blocks.3.0.mlp.fn.dwconv.depthwise_conv.0.weight        shape=(96, 1, 5, 5)                numel=2400
+blocks.3.0.mlp.fn.dwconv.depthwise_conv.0.bias          shape=(96,)                        numel=96
+blocks.3.0.mlp.fn.fc2.weight                            shape=(48, 96)                     numel=4608
+blocks.3.0.mlp.fn.fc2.bias                              shape=(48,)                        numel=48
+blocks.3.0.irca_attn.to_k.weight                        shape=(36, 48)                     numel=1728
+blocks.3.0.irca_attn.to_v.weight                        shape=(48, 48)                     numel=2304
+blocks.3.0.iasa_attn.to_q.weight                        shape=(36, 48)                     numel=1728
+blocks.3.0.iasa_attn.to_k.weight                        shape=(36, 48)                     numel=1728
+blocks.3.0.iasa_attn.to_v.weight                        shape=(48, 48)                     numel=2304
+blocks.3.0.iasa_attn.proj.weight                        shape=(48, 48)                     numel=2304
+blocks.3.0.conv1x1.weight                               shape=(48, 48, 1, 1)               numel=2304
+blocks.3.1.layer.0.norm.weight                          shape=(48,)                        numel=48
+blocks.3.1.layer.0.norm.bias                            shape=(48,)                        numel=48
+blocks.3.1.layer.0.fn.to_q.weight                       shape=(36, 48)                     numel=1728
+blocks.3.1.layer.0.fn.to_k.weight                       shape=(36, 48)                     numel=1728
+blocks.3.1.layer.0.fn.to_v.weight                       shape=(48, 48)                     numel=2304
+blocks.3.1.layer.0.fn.proj.weight                       shape=(48, 48)                     numel=2304
+blocks.3.1.layer.1.norm.weight                          shape=(48,)                        numel=48
+blocks.3.1.layer.1.norm.bias                            shape=(48,)                        numel=48
+blocks.3.1.layer.1.fn.fc1.weight                        shape=(96, 48)                     numel=4608
+blocks.3.1.layer.1.fn.fc1.bias                          shape=(96,)                        numel=96
+blocks.3.1.layer.1.fn.dwconv.depthwise_conv.0.weight    shape=(96, 1, 5, 5)                numel=2400
+blocks.3.1.layer.1.fn.dwconv.depthwise_conv.0.bias      shape=(96,)                        numel=96
+blocks.3.1.layer.1.fn.fc2.weight                        shape=(48, 96)                     numel=4608
+blocks.3.1.layer.1.fn.fc2.bias                          shape=(48,)                        numel=48
+blocks.4.0.means                                        shape=(16, 48)                     numel=768
+blocks.4.0.initted                                      shape=()                           numel=1
+blocks.4.0.norm.weight                                  shape=(48,)                        numel=48
+blocks.4.0.norm.bias                                    shape=(48,)                        numel=48
+blocks.4.0.mlp.norm.weight                              shape=(48,)                        numel=48
+blocks.4.0.mlp.norm.bias                                shape=(48,)                        numel=48
+blocks.4.0.mlp.fn.fc1.weight                            shape=(96, 48)                     numel=4608
+blocks.4.0.mlp.fn.fc1.bias                              shape=(96,)                        numel=96
+blocks.4.0.mlp.fn.dwconv.depthwise_conv.0.weight        shape=(96, 1, 5, 5)                numel=2400
+blocks.4.0.mlp.fn.dwconv.depthwise_conv.0.bias          shape=(96,)                        numel=96
+blocks.4.0.mlp.fn.fc2.weight                            shape=(48, 96)                     numel=4608
+blocks.4.0.mlp.fn.fc2.bias                              shape=(48,)                        numel=48
+blocks.4.0.irca_attn.to_k.weight                        shape=(36, 48)                     numel=1728
+blocks.4.0.irca_attn.to_v.weight                        shape=(48, 48)                     numel=2304
+blocks.4.0.iasa_attn.to_q.weight                        shape=(36, 48)                     numel=1728
+blocks.4.0.iasa_attn.to_k.weight                        shape=(36, 48)                     numel=1728
+blocks.4.0.iasa_attn.to_v.weight                        shape=(48, 48)                     numel=2304
+blocks.4.0.iasa_attn.proj.weight                        shape=(48, 48)                     numel=2304
+blocks.4.0.conv1x1.weight                               shape=(48, 48, 1, 1)               numel=2304
+blocks.4.1.layer.0.norm.weight                          shape=(48,)                        numel=48
+blocks.4.1.layer.0.norm.bias                            shape=(48,)                        numel=48
+blocks.4.1.layer.0.fn.to_q.weight                       shape=(36, 48)                     numel=1728
+blocks.4.1.layer.0.fn.to_k.weight                       shape=(36, 48)                     numel=1728
+blocks.4.1.layer.0.fn.to_v.weight                       shape=(48, 48)                     numel=2304
+blocks.4.1.layer.0.fn.proj.weight                       shape=(48, 48)                     numel=2304
+blocks.4.1.layer.1.norm.weight                          shape=(48,)                        numel=48
+blocks.4.1.layer.1.norm.bias                            shape=(48,)                        numel=48
+blocks.4.1.layer.1.fn.fc1.weight                        shape=(96, 48)                     numel=4608
+blocks.4.1.layer.1.fn.fc1.bias                          shape=(96,)                        numel=96
+blocks.4.1.layer.1.fn.dwconv.depthwise_conv.0.weight    shape=(96, 1, 5, 5)                numel=2400
+blocks.4.1.layer.1.fn.dwconv.depthwise_conv.0.bias      shape=(96,)                        numel=96
+blocks.4.1.layer.1.fn.fc2.weight                        shape=(48, 96)                     numel=4608
+blocks.4.1.layer.1.fn.fc2.bias                          shape=(48,)                        numel=48
+blocks.5.0.means                                        shape=(32, 48)                     numel=1536
+blocks.5.0.initted                                      shape=()                           numel=1
+blocks.5.0.norm.weight                                  shape=(48,)                        numel=48
+blocks.5.0.norm.bias                                    shape=(48,)                        numel=48
+blocks.5.0.mlp.norm.weight                              shape=(48,)                        numel=48
+blocks.5.0.mlp.norm.bias                                shape=(48,)                        numel=48
+blocks.5.0.mlp.fn.fc1.weight                            shape=(96, 48)                     numel=4608
+blocks.5.0.mlp.fn.fc1.bias                              shape=(96,)                        numel=96
+blocks.5.0.mlp.fn.dwconv.depthwise_conv.0.weight        shape=(96, 1, 5, 5)                numel=2400
+blocks.5.0.mlp.fn.dwconv.depthwise_conv.0.bias          shape=(96,)                        numel=96
+blocks.5.0.mlp.fn.fc2.weight                            shape=(48, 96)                     numel=4608
+blocks.5.0.mlp.fn.fc2.bias                              shape=(48,)                        numel=48
+blocks.5.0.irca_attn.to_k.weight                        shape=(36, 48)                     numel=1728
+blocks.5.0.irca_attn.to_v.weight                        shape=(48, 48)                     numel=2304
+blocks.5.0.iasa_attn.to_q.weight                        shape=(36, 48)                     numel=1728
+blocks.5.0.iasa_attn.to_k.weight                        shape=(36, 48)                     numel=1728
+blocks.5.0.iasa_attn.to_v.weight                        shape=(48, 48)                     numel=2304
+blocks.5.0.iasa_attn.proj.weight                        shape=(48, 48)                     numel=2304
+blocks.5.0.conv1x1.weight                               shape=(48, 48, 1, 1)               numel=2304
+blocks.5.1.layer.0.norm.weight                          shape=(48,)                        numel=48
+blocks.5.1.layer.0.norm.bias                            shape=(48,)                        numel=48
+blocks.5.1.layer.0.fn.to_q.weight                       shape=(36, 48)                     numel=1728
+blocks.5.1.layer.0.fn.to_k.weight                       shape=(36, 48)                     numel=1728
+blocks.5.1.layer.0.fn.to_v.weight                       shape=(48, 48)                     numel=2304
+blocks.5.1.layer.0.fn.proj.weight                       shape=(48, 48)                     numel=2304
+blocks.5.1.layer.1.norm.weight                          shape=(48,)                        numel=48
+blocks.5.1.layer.1.norm.bias                            shape=(48,)                        numel=48
+blocks.5.1.layer.1.fn.fc1.weight                        shape=(96, 48)                     numel=4608
+blocks.5.1.layer.1.fn.fc1.bias                          shape=(96,)                        numel=96
+blocks.5.1.layer.1.fn.dwconv.depthwise_conv.0.weight    shape=(96, 1, 5, 5)                numel=2400
+blocks.5.1.layer.1.fn.dwconv.depthwise_conv.0.bias      shape=(96,)                        numel=96
+blocks.5.1.layer.1.fn.fc2.weight                        shape=(48, 96)                     numel=4608
+blocks.5.1.layer.1.fn.fc2.bias                          shape=(48,)                        numel=48
+blocks.6.0.means                                        shape=(64, 48)                     numel=3072
+blocks.6.0.initted                                      shape=()                           numel=1
+blocks.6.0.norm.weight                                  shape=(48,)                        numel=48
+blocks.6.0.norm.bias                                    shape=(48,)                        numel=48
+blocks.6.0.mlp.norm.weight                              shape=(48,)                        numel=48
+blocks.6.0.mlp.norm.bias                                shape=(48,)                        numel=48
+blocks.6.0.mlp.fn.fc1.weight                            shape=(96, 48)                     numel=4608
+blocks.6.0.mlp.fn.fc1.bias                              shape=(96,)                        numel=96
+blocks.6.0.mlp.fn.dwconv.depthwise_conv.0.weight        shape=(96, 1, 5, 5)                numel=2400
+blocks.6.0.mlp.fn.dwconv.depthwise_conv.0.bias          shape=(96,)                        numel=96
+blocks.6.0.mlp.fn.fc2.weight                            shape=(48, 96)                     numel=4608
+blocks.6.0.mlp.fn.fc2.bias                              shape=(48,)                        numel=48
+blocks.6.0.irca_attn.to_k.weight                        shape=(36, 48)                     numel=1728
+blocks.6.0.irca_attn.to_v.weight                        shape=(48, 48)                     numel=2304
+blocks.6.0.iasa_attn.to_q.weight                        shape=(36, 48)                     numel=1728
+blocks.6.0.iasa_attn.to_k.weight                        shape=(36, 48)                     numel=1728
+blocks.6.0.iasa_attn.to_v.weight                        shape=(48, 48)                     numel=2304
+blocks.6.0.iasa_attn.proj.weight                        shape=(48, 48)                     numel=2304
+blocks.6.0.conv1x1.weight                               shape=(48, 48, 1, 1)               numel=2304
+blocks.6.1.layer.0.norm.weight                          shape=(48,)                        numel=48
+blocks.6.1.layer.0.norm.bias                            shape=(48,)                        numel=48
+blocks.6.1.layer.0.fn.to_q.weight                       shape=(36, 48)                     numel=1728
+blocks.6.1.layer.0.fn.to_k.weight                       shape=(36, 48)                     numel=1728
+blocks.6.1.layer.0.fn.to_v.weight                       shape=(48, 48)                     numel=2304
+blocks.6.1.layer.0.fn.proj.weight                       shape=(48, 48)                     numel=2304
+blocks.6.1.layer.1.norm.weight                          shape=(48,)                        numel=48
+blocks.6.1.layer.1.norm.bias                            shape=(48,)                        numel=48
+blocks.6.1.layer.1.fn.fc1.weight                        shape=(96, 48)                     numel=4608
+blocks.6.1.layer.1.fn.fc1.bias                          shape=(96,)                        numel=96
+blocks.6.1.layer.1.fn.dwconv.depthwise_conv.0.weight    shape=(96, 1, 5, 5)                numel=2400
+blocks.6.1.layer.1.fn.dwconv.depthwise_conv.0.bias      shape=(96,)                        numel=96
+blocks.6.1.layer.1.fn.fc2.weight                        shape=(48, 96)                     numel=4608
+blocks.6.1.layer.1.fn.fc2.bias                          shape=(48,)                        numel=48
+blocks.7.0.means                                        shape=(128, 48)                    numel=6144
+blocks.7.0.initted                                      shape=()                           numel=1
+blocks.7.0.norm.weight                                  shape=(48,)                        numel=48
+blocks.7.0.norm.bias                                    shape=(48,)                        numel=48
+blocks.7.0.mlp.norm.weight                              shape=(48,)                        numel=48
+blocks.7.0.mlp.norm.bias                                shape=(48,)                        numel=48
+blocks.7.0.mlp.fn.fc1.weight                            shape=(96, 48)                     numel=4608
+blocks.7.0.mlp.fn.fc1.bias                              shape=(96,)                        numel=96
+blocks.7.0.mlp.fn.dwconv.depthwise_conv.0.weight        shape=(96, 1, 5, 5)                numel=2400
+blocks.7.0.mlp.fn.dwconv.depthwise_conv.0.bias          shape=(96,)                        numel=96
+blocks.7.0.mlp.fn.fc2.weight                            shape=(48, 96)                     numel=4608
+blocks.7.0.mlp.fn.fc2.bias                              shape=(48,)                        numel=48
+blocks.7.0.irca_attn.to_k.weight                        shape=(36, 48)                     numel=1728
+blocks.7.0.irca_attn.to_v.weight                        shape=(48, 48)                     numel=2304
+blocks.7.0.iasa_attn.to_q.weight                        shape=(36, 48)                     numel=1728
+blocks.7.0.iasa_attn.to_k.weight                        shape=(36, 48)                     numel=1728
+blocks.7.0.iasa_attn.to_v.weight                        shape=(48, 48)                     numel=2304
+blocks.7.0.iasa_attn.proj.weight                        shape=(48, 48)                     numel=2304
+blocks.7.0.conv1x1.weight                               shape=(48, 48, 1, 1)               numel=2304
+blocks.7.1.layer.0.norm.weight                          shape=(48,)                        numel=48
+blocks.7.1.layer.0.norm.bias                            shape=(48,)                        numel=48
+blocks.7.1.layer.0.fn.to_q.weight                       shape=(36, 48)                     numel=1728
+blocks.7.1.layer.0.fn.to_k.weight                       shape=(36, 48)                     numel=1728
+blocks.7.1.layer.0.fn.to_v.weight                       shape=(48, 48)                     numel=2304
+blocks.7.1.layer.0.fn.proj.weight                       shape=(48, 48)                     numel=2304
+blocks.7.1.layer.1.norm.weight                          shape=(48,)                        numel=48
+blocks.7.1.layer.1.norm.bias                            shape=(48,)                        numel=48
+blocks.7.1.layer.1.fn.fc1.weight                        shape=(96, 48)                     numel=4608
+blocks.7.1.layer.1.fn.fc1.bias                          shape=(96,)                        numel=96
+blocks.7.1.layer.1.fn.dwconv.depthwise_conv.0.weight    shape=(96, 1, 5, 5)                numel=2400
+blocks.7.1.layer.1.fn.dwconv.depthwise_conv.0.bias      shape=(96,)                        numel=96
+blocks.7.1.layer.1.fn.fc2.weight                        shape=(48, 96)                     numel=4608
+blocks.7.1.layer.1.fn.fc2.bias                          shape=(48,)                        numel=48
+mid_convs.0.weight                                      shape=(48, 48, 3, 3)               numel=20736
+mid_convs.0.bias                                        shape=(48,)                        numel=48
+mid_convs.1.weight                                      shape=(48, 48, 3, 3)               numel=20736
+mid_convs.1.bias                                        shape=(48,)                        numel=48
+mid_convs.2.weight                                      shape=(48, 48, 3, 3)               numel=20736
+mid_convs.2.bias                                        shape=(48,)                        numel=48
+mid_convs.3.weight                                      shape=(48, 48, 3, 3)               numel=20736
+mid_convs.3.bias                                        shape=(48,)                        numel=48
+mid_convs.4.weight                                      shape=(48, 48, 3, 3)               numel=20736
+mid_convs.4.bias                                        shape=(48,)                        numel=48
+mid_convs.5.weight                                      shape=(48, 48, 3, 3)               numel=20736
+mid_convs.5.bias                                        shape=(48,)                        numel=48
+mid_convs.6.weight                                      shape=(48, 48, 3, 3)               numel=20736
+mid_convs.6.bias                                        shape=(48,)                        numel=48
+mid_convs.7.weight                                      shape=(48, 48, 3, 3)               numel=20736
+mid_convs.7.bias                                        shape=(48,)                        numel=48
+upconv.weight                                           shape=(192, 48, 3, 3)              numel=82944
+upconv.bias                                             shape=(192,)                       numel=192
+last_conv.weight                                        shape=(3, 48, 3, 3)                numel=1296
+last_conv.bias                                          shape=(3,)                         numel=3

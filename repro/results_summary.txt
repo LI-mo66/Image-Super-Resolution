@@ -1,0 +1,18 @@
+LFMN 复现结果汇总（self_ensemble 开启，官方 benchmark 协议）
+生成时间: 2026-09-09 15:00:18
+
+[Set5 x2]	PSNR: 38.293 (Best: 38.293 @epoch 1)	SSIM: 0.9617
+[Set14 x2]	PSNR: 34.108 (Best: 34.108 @epoch 1)	SSIM: 0.9223
+[B100 x2]	PSNR: 32.399 (Best: 32.399 @epoch 1)	SSIM: 0.9025
+
+[Set5 x3]	PSNR: 34.788 (Best: 34.788 @epoch 1)	SSIM: 0.9303
+[Set14 x3]	PSNR: 30.690 (Best: 30.690 @epoch 1)	SSIM: 0.8484
+[B100 x3]	PSNR: 29.312 (Best: 29.312 @epoch 1)	SSIM: 0.8107
+
+
+[Set14 x4]	PSNR: 28.951 (Best: 28.951 @epoch 1)	SSIM: 0.7892
+[B100 x4]	PSNR: 27.794 (Best: 27.794 @epoch 1)	SSIM: 0.7437
+[Set5 x3]	PSNR: 34.788 (Best: 34.788 @epoch 1)	SSIM: 0.9303
+[Urban100 x4]	PSNR: 26.904 (Best: 26.904 @epoch 1)	SSIM: 0.8087
+
+全部完成
