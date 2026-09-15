@@ -38,6 +38,7 @@ class Trainer():
         self.model.train()
 
         timer_data, timer_model = utility.timer(), utility.timer()
+        processed_batches = 0
         for batch, (lr, hr, idx_scale) in enumerate(self.loader_train):
             lr, hr = self.prepare(lr, hr)
             timer_data.hold()
@@ -53,6 +54,7 @@ class Trainer():
                     self.args.gclip
                 )
             self.optimizer.step()
+            processed_batches = batch + 1
 
             timer_model.hold()
 
@@ -66,7 +68,18 @@ class Trainer():
 
             timer_data.tic()
 
-        self.loss.end_log(len(self.loader_train))
+            if (
+                self.args.max_train_batches > 0
+                and processed_batches >= self.args.max_train_batches
+            ):
+                self.ckp.write_log(
+                    'Stopped epoch early after {} batches (--max_train_batches).'.format(
+                        processed_batches
+                    )
+                )
+                break
+
+        self.loss.end_log(processed_batches)
         self.error_last = self.loss.log[-1, -1]
         self.optimizer.schedule()
 
@@ -152,5 +165,7 @@ class Trainer():
             self.test()
             return True
         else:
-            epoch = self.optimizer.get_last_epoch() + 1
-            return epoch >= self.args.epochs
+            # MultiStepLR performs its initial step during construction, so
+            # last_epoch is 0 before the first training epoch in current PyTorch.
+            # Training is complete only after schedule() reaches args.epochs.
+            return self.optimizer.get_last_epoch() >= self.args.epochs
