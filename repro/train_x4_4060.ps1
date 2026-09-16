@@ -55,9 +55,14 @@ if ($Mode -eq 'finetune') { $arguments += @('--pre_train', $checkpoint) }
 
 Write-Host "Mode: $Mode; max batches/epoch: $MaxTrainBatches; validation: 0801-$ValidationEnd"
 Write-Host "Output: experiment/all_runs/$SaveName"
+$runTimer = [System.Diagnostics.Stopwatch]::StartNew()
 Push-Location $lfmnRoot
 try {
     & $Python @arguments
     if ($LASTEXITCODE -ne 0) { throw "Training run failed with exit code $LASTEXITCODE" }
 }
-finally { Pop-Location }
+finally {
+    Pop-Location
+    $runTimer.Stop()
+    Write-Host ('Wall-clock elapsed: {0:hh\:mm\:ss} ({1:N1} minutes)' -f $runTimer.Elapsed, $runTimer.Elapsed.TotalMinutes)
+}
