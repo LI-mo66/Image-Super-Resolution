@@ -15,6 +15,9 @@ import cv2
 import imageio
 import matplotlib
 import tqdm
+import skimage
+import einops
+import torchvision
 
 print('Python:', sys.version.replace('\n', ' '))
 print('PyTorch:', torch.__version__)
@@ -29,4 +32,7 @@ print('OpenCV:', cv2.__version__)
 print('ImageIO:', imageio.__version__)
 print('Matplotlib:', matplotlib.__version__)
 print('tqdm:', tqdm.__version__)
+print('scikit-image:', skimage.__version__)
+print('einops:', einops.__version__)
+print('torchvision:', torchvision.__version__)
 PY

@@ -6,3 +6,5 @@ matplotlib==3.10.9
 tqdm==4.70.0
 scipy==1.15.3
 pillow==12.1.1
+scikit-image==0.25.2
+einops==0.8.2
