@@ -11,7 +11,7 @@ LFMN_ROOT = PROJECT_ROOT / 'LFMN'
 sys.path.insert(0, str(LFMN_ROOT))
 
 from model.lfmn import Net as BaselineNet  # noqa: E402
-from model.lfmn_feedback import Net as FeedbackNet  # noqa: E402
+from model.lfmnfeedback import Net as FeedbackNet  # noqa: E402
 
 
 def main():
