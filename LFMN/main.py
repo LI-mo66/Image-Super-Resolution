@@ -8,11 +8,11 @@ from option import args
 from trainer import Trainer
 
 torch.manual_seed(args.seed)
-checkpoint = utility.checkpoint(args)
 os.environ['CUDA_VISIBLE_DEVICES'] = '0'
 
 def main():
     global model
+    checkpoint = utility.checkpoint(args)
     if args.data_test == ['video']:
         from videotester import VideoTester
         model = model.Model(args, checkpoint)
