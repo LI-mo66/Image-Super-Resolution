@@ -48,6 +48,12 @@ parser.add_argument('--no_augment', action='store_true',
 # Model specifications
 parser.add_argument('--model', default='LFMN',
                     help='model name')
+parser.add_argument('--feedback_stages', type=str, default='3-5-7',
+                    help='1-based stages using feedback correction (for LFMNFeedback)')
+parser.add_argument('--feedback_mid', type=int, default=8,
+                    help='hidden channels in each feedback correction branch')
+parser.add_argument('--feedback_scale', type=float, default=0.1,
+                    help='maximum magnitude of bounded feedback corrections')
 
 parser.add_argument('--act', type=str, default='relu',
                     help='activation function')

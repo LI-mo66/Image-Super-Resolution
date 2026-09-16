@@ -6,6 +6,10 @@ MAX_TRAIN_BATCHES="${2:-20}"
 EPOCHS="${3:-1}"
 VALIDATION_END="${4:-810}"
 RUN_NAME="${5:-}"
+MODEL="${6:-LFMN}"
+FEEDBACK_STAGES="${7:-3-5-7}"
+FEEDBACK_MID="${8:-8}"
+LEARNING_RATE="${9:-2e-4}"
 
 if [[ "$MODE" != "scratch" && "$MODE" != "finetune" && "$MODE" != "resume" ]]; then
   echo "Mode must be scratch, finetune, or resume." >&2
@@ -17,6 +21,10 @@ if (( VALIDATION_END < 801 || VALIDATION_END > 900 )); then
 fi
 if (( MAX_TRAIN_BATCHES < 0 || EPOCHS < 1 )); then
   echo "MaxTrainBatches must be nonnegative and Epochs must be at least 1." >&2
+  exit 2
+fi
+if [[ "$MODEL" != "LFMN" && "$MODEL" != "LFMNFeedback" ]]; then
+  echo "Model must be LFMN or LFMNFeedback." >&2
   exit 2
 fi
 
@@ -48,7 +56,7 @@ fi
 args=(
   main.py
   --dir_data "$DATA_ROOT"
-  --model LFMN
+  --model "$MODEL"
   --data_train DIV2K
   --data_test DIV2K
   --data_range "1-800/801-$VALIDATION_END"
@@ -59,13 +67,17 @@ args=(
   --ext img
   --epochs "$EPOCHS"
   --test_every 1000
-  --lr 2e-4
+  --lr "$LEARNING_RATE"
   --decay 200-400-600-800
   --gamma 0.5
   --loss '1*L1'
   --max_train_batches "$MAX_TRAIN_BATCHES"
   --print_every 10
 )
+
+if [[ "$MODEL" == "LFMNFeedback" ]]; then
+  args+=(--feedback_stages "$FEEDBACK_STAGES" --feedback_mid "$FEEDBACK_MID")
+fi
 
 case "$MODE" in
   scratch) args+=(--save "$RUN_NAME") ;;
@@ -74,6 +86,8 @@ case "$MODE" in
 esac
 
 echo "Mode: $MODE; max batches/epoch: $MAX_TRAIN_BATCHES; target epochs: $EPOCHS"
+echo "Model: $MODEL; feedback stages: $FEEDBACK_STAGES; feedback mid: $FEEDBACK_MID"
+echo "Learning rate: $LEARNING_RATE"
 echo "Validation: 0801-$VALIDATION_END"
 echo "Output: experiment/all_runs/$RUN_NAME"
 
