@@ -291,8 +291,15 @@ def make_optimizer(args, target):
         if parameter.requires_grad
     ]
     feedback_lr_mult = getattr(args, 'feedback_lr_mult', 1.0)
+    freq_lr_mult = getattr(args, 'freq_lr_mult', 1.0)
     if feedback_lr_mult <= 0:
         raise ValueError('feedback_lr_mult must be positive')
+    if freq_lr_mult <= 0:
+        raise ValueError('freq_lr_mult must be positive')
+    if feedback_lr_mult != 1.0 and freq_lr_mult != 1.0:
+        raise ValueError(
+            'feedback_lr_mult and freq_lr_mult cannot both differ from 1'
+        )
     if feedback_lr_mult != 1.0:
         feedback = [
             parameter for name, parameter in trainable_named
@@ -317,6 +324,32 @@ def make_optimizer(args, target):
         print(
             'Optimizer learning rates: backbone={:.2e}; feedback={:.2e} (x{:g})'.format(
                 args.lr, args.lr * feedback_lr_mult, feedback_lr_mult
+            )
+        )
+    elif freq_lr_mult != 1.0:
+        frequency = [
+            parameter for name, parameter in trainable_named
+            if name.startswith('freq_prior.') or '.freq_prior.' in name
+        ]
+        backbone = [
+            parameter for name, parameter in trainable_named
+            if not (name.startswith('freq_prior.') or '.freq_prior.' in name)
+        ]
+        if not frequency:
+            raise ValueError(
+                'freq_lr_mult != 1 requires a model with freq_prior parameters'
+            )
+        trainable = [
+            {'params': backbone, 'lr': args.lr, 'group_name': 'backbone'},
+            {
+                'params': frequency,
+                'lr': args.lr * freq_lr_mult,
+                'group_name': 'freq_prior',
+            },
+        ]
+        print(
+            'Optimizer learning rates: backbone={:.2e}; frequency={:.2e} (x{:g})'.format(
+                args.lr, args.lr * freq_lr_mult, freq_lr_mult
             )
         )
     else:

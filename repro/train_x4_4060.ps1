@@ -7,7 +7,13 @@ param(
     [string]$Python = 'E:\anaconda\envs\dl\python.exe',
     [string]$DataRoot = 'E:\fuxian_LFMN_jianghe\datasets',
     [string]$SaveName = '',
-    [string]$LoadName = ''
+    [string]$LoadName = '',
+    [ValidateSet('LFMN', 'LFMNFeedback', 'LFMNFreq', 'LFMNOverlap')]
+    [string]$Model = 'LFMN',
+    [string]$Loss = '1*L1',
+    [double]$LearningRate = 2e-4,
+    [double]$FeedbackLrMult = 1,
+    [double]$FreqLrMult = 1
 )
 
 $ErrorActionPreference = 'Stop'
@@ -45,7 +51,7 @@ elseif ([string]::IsNullOrWhiteSpace($SaveName)) {
 $arguments = @(
     'main.py',
     '--dir_data', $DataRoot,
-    '--model', 'LFMN',
+    '--model', $Model,
     '--data_train', 'DIV2K',
     '--data_test', 'DIV2K',
     '--data_range', "1-800/801-$ValidationEnd",
@@ -56,13 +62,19 @@ $arguments = @(
     '--ext', 'img',
     '--epochs', $Epochs,
     '--test_every', '1000',
-    '--lr', '2e-4',
+    '--lr', $LearningRate,
     '--decay', '200-400-600-800',
     '--gamma', '0.5',
-    '--loss', '1*L1',
+    '--loss', $Loss,
     '--max_train_batches', $MaxTrainBatches,
     '--print_every', '10'
 )
+if ($Model -eq 'LFMNFeedback') {
+    $arguments += @('--feedback_lr_mult', $FeedbackLrMult)
+}
+if ($Model -eq 'LFMNFreq') {
+    $arguments += @('--freq_lr_mult', $FreqLrMult)
+}
 if ($Mode -eq 'finetune') {
     $arguments += @('--pre_train', $checkpoint, '--save', $SaveName)
 }
@@ -73,7 +85,7 @@ else {
     $arguments += @('--save', $SaveName)
 }
 
-Write-Host "Mode: $Mode; max batches/epoch: $MaxTrainBatches; validation: 0801-$ValidationEnd"
+Write-Host "Mode: $Mode; model: $Model; loss: $Loss; max batches/epoch: $MaxTrainBatches; validation: 0801-$ValidationEnd"
 Write-Host "Output: experiment/all_runs/$SaveName"
 $runTimer = [System.Diagnostics.Stopwatch]::StartNew()
 Push-Location $lfmnRoot

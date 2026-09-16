@@ -11,6 +11,8 @@ FEEDBACK_STAGES="${7:-3-5-7}"
 FEEDBACK_MID="${8:-8}"
 LEARNING_RATE="${9:-2e-4}"
 FEEDBACK_LR_MULT="${10:-1}"
+LOSS_SPEC="${11:-1*L1}"
+FREQ_LR_MULT="${12:-1}"
 
 if [[ "$MODE" != "scratch" && "$MODE" != "finetune" && "$MODE" != "resume" ]]; then
   echo "Mode must be scratch, finetune, or resume." >&2
@@ -24,8 +26,8 @@ if (( MAX_TRAIN_BATCHES < 0 || EPOCHS < 1 )); then
   echo "MaxTrainBatches must be nonnegative and Epochs must be at least 1." >&2
   exit 2
 fi
-if [[ "$MODEL" != "LFMN" && "$MODEL" != "LFMNFeedback" ]]; then
-  echo "Model must be LFMN or LFMNFeedback." >&2
+if [[ "$MODEL" != "LFMN" && "$MODEL" != "LFMNFeedback" && "$MODEL" != "LFMNFreq" && "$MODEL" != "LFMNOverlap" ]]; then
+  echo "Model must be LFMN, LFMNFeedback, LFMNFreq, or LFMNOverlap." >&2
   exit 2
 fi
 
@@ -71,7 +73,7 @@ args=(
   --lr "$LEARNING_RATE"
   --decay 200-400-600-800
   --gamma 0.5
-  --loss '1*L1'
+  --loss "$LOSS_SPEC"
   --max_train_batches "$MAX_TRAIN_BATCHES"
   --print_every 10
 )
@@ -82,6 +84,9 @@ if [[ "$MODEL" == "LFMNFeedback" ]]; then
     --feedback_mid "$FEEDBACK_MID"
     --feedback_lr_mult "$FEEDBACK_LR_MULT"
   )
+fi
+if [[ "$MODEL" == "LFMNFreq" ]]; then
+  args+=(--freq_lr_mult "$FREQ_LR_MULT")
 fi
 
 case "$MODE" in
@@ -94,6 +99,8 @@ echo "Mode: $MODE; max batches/epoch: $MAX_TRAIN_BATCHES; target epochs: $EPOCHS
 echo "Model: $MODEL; feedback stages: $FEEDBACK_STAGES; feedback mid: $FEEDBACK_MID"
 echo "Learning rate: $LEARNING_RATE"
 echo "Feedback learning-rate multiplier: $FEEDBACK_LR_MULT"
+echo "Frequency-prior learning-rate multiplier: $FREQ_LR_MULT"
+echo "Loss: $LOSS_SPEC"
 echo "Validation: 0801-$VALIDATION_END"
 echo "Output: experiment/all_runs/$RUN_NAME"
 

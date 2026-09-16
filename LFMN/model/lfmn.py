@@ -317,7 +317,7 @@ def patch_divide(x, step, ps):
     return crop_x, nh, nw
 
 
-def patch_reverse(crop_x, x, step, ps):
+def patch_reverse(crop_x, x, step, ps, normalize_overlap=False):
     b, c, h, w = x.size()
     output = torch.zeros_like(x)
     index = 0
@@ -335,6 +335,23 @@ def patch_reverse(crop_x, x, step, ps):
                 right = w
             output[:, :, top:down, left:right] += crop_x[:, index]
             index += 1
+    if normalize_overlap:
+        coverage = torch.zeros_like(x)
+        for i in range(0, h + step - ps, step):
+            top = i
+            down = i + ps
+            if down > h:
+                top = h - ps
+                down = h
+            for j in range(0, w + step - ps, step):
+                left = j
+                right = j + ps
+                if right > w:
+                    left = w - ps
+                    right = w
+                coverage[:, :, top:down, left:right] += 1
+        return output / coverage.clamp_min(1)
+
     for i in range(step, h + step - ps, step):
         top = i
         down = i + ps - step
@@ -370,8 +387,9 @@ class Attention(nn.Module):
 class LRSA(nn.Module):
     """Local spatial relation aggregation: patch self-attention."""
 
-    def __init__(self, dim, qk_dim, mlp_dim, heads=1):
+    def __init__(self, dim, qk_dim, mlp_dim, heads=1, normalize_overlap=False):
         super().__init__()
+        self.normalize_overlap = bool(normalize_overlap)
         self.layer = nn.ModuleList([
             PreNorm(dim, Attention(dim, heads, qk_dim)),
             PreNorm(dim, ConvFFN(dim, mlp_dim))])
@@ -384,7 +402,9 @@ class LRSA(nn.Module):
         attn, ff = self.layer
         crop_x = attn(crop_x) + crop_x
         crop_x = rearrange(crop_x, '(b n) (h w) c -> b n c h w', n=n, w=pw)
-        x = patch_reverse(crop_x, x, step, ps)
+        x = patch_reverse(
+            crop_x, x, step, ps, normalize_overlap=self.normalize_overlap
+        )
         _, _, h, w = x.shape
         x = rearrange(x, 'b c h w -> b (h w) c')
         x = ff(x, x_size=(h, w)) + x
@@ -393,7 +413,9 @@ class LRSA(nn.Module):
 
 # ---------------------------------------------------------------- Net
 class Net(nn.Module):
-    def __init__(self, scale=2, n_feats=48, side_c=32, n_stage=8):
+    def __init__(
+            self, scale=2, n_feats=48, side_c=32, n_stage=8,
+            normalize_overlap=False):
         super(Net, self).__init__()
         self.scale = int(scale)
         dim = n_feats
@@ -414,7 +436,10 @@ class Net(nn.Module):
             self.blocks.append(nn.ModuleList([
                 TAB(dim, qk_dim, mlp_dim, heads, n_iter=3,
                     num_tokens=num_tokens[i], group_size=group_size[i]),
-                LRSA(dim, qk_dim, mlp_dim, heads)]))
+                LRSA(
+                    dim, qk_dim, mlp_dim, heads,
+                    normalize_overlap=normalize_overlap,
+                )]))
             self.mid_convs.append(nn.Conv2d(dim, dim, 3, 1, 1))
         self.patch_size = patch_size
         if self.scale == 4:
