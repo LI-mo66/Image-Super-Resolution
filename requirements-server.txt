@@ -1,0 +1,8 @@
+# PyTorch is supplied by the selected AutoDL image and is intentionally not installed here.
+numpy==2.2.6
+opencv-python-headless==4.11.0.86
+imageio==2.37.4
+matplotlib==3.10.9
+tqdm==4.70.0
+scipy==1.15.3
+pillow==12.1.1
