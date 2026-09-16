@@ -27,8 +27,8 @@ if (( MAX_TRAIN_BATCHES < 0 || EPOCHS < 1 )); then
   echo "MaxTrainBatches must be nonnegative and Epochs must be at least 1." >&2
   exit 2
 fi
-if [[ "$MODEL" != "LFMN" && "$MODEL" != "LFMNFeedback" && "$MODEL" != "LFMNFreq" && "$MODEL" != "LFMNOverlap" && "$MODEL" != "LFMNRDSM" ]]; then
-  echo "Model must be LFMN, LFMNFeedback, LFMNFreq, LFMNOverlap, or LFMNRDSM." >&2
+if [[ "$MODEL" != "LFMN" && "$MODEL" != "LFMNFeedback" && "$MODEL" != "LFMNFreq" && "$MODEL" != "LFMNOverlap" && "$MODEL" != "LFMNRDSM" && "$MODEL" != "LFMNRDSMDirect" ]]; then
+  echo "Unsupported model: $MODEL" >&2
   exit 2
 fi
 
@@ -89,7 +89,7 @@ fi
 if [[ "$MODEL" == "LFMNFreq" ]]; then
   args+=(--freq_lr_mult "$FREQ_LR_MULT")
 fi
-if [[ "$MODEL" == "LFMNRDSM" ]]; then
+if [[ "$MODEL" == "LFMNRDSM" || "$MODEL" == "LFMNRDSMDirect" ]]; then
   args+=(--rdsm_lr_mult "$RDSM_LR_MULT")
 fi
 

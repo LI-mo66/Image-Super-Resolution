@@ -2,6 +2,7 @@ from importlib import import_module
 #from dataloader import MSDataLoader
 from torch.utils.data import dataloader
 from torch.utils.data import ConcatDataset
+import torch
 
 # This is a simple wrapper function for ConcatDataset
 class MyConcatDataset(ConcatDataset):
@@ -23,12 +24,17 @@ class Data:
                 m = import_module('data.' + module_name.lower())
                 datasets.append(getattr(m, module_name)(args, name=d))
 
+            # Decouple crop/augmentation seeds from candidate-specific model
+            # initialization, which consumes a different amount of RNG state.
+            train_generator = torch.Generator()
+            train_generator.manual_seed(args.seed)
             self.loader_train = dataloader.DataLoader(
                 MyConcatDataset(datasets),
                 batch_size=args.batch_size,
                 shuffle=True,
                 pin_memory=not args.cpu,
                 num_workers=args.n_threads,
+                generator=train_generator,
             )
 
         self.loader_test = []
