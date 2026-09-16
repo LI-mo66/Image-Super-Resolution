@@ -10,6 +10,7 @@ MODEL="${6:-LFMN}"
 FEEDBACK_STAGES="${7:-3-5-7}"
 FEEDBACK_MID="${8:-8}"
 LEARNING_RATE="${9:-2e-4}"
+FEEDBACK_LR_MULT="${10:-1}"
 
 if [[ "$MODE" != "scratch" && "$MODE" != "finetune" && "$MODE" != "resume" ]]; then
   echo "Mode must be scratch, finetune, or resume." >&2
@@ -76,7 +77,11 @@ args=(
 )
 
 if [[ "$MODEL" == "LFMNFeedback" ]]; then
-  args+=(--feedback_stages "$FEEDBACK_STAGES" --feedback_mid "$FEEDBACK_MID")
+  args+=(
+    --feedback_stages "$FEEDBACK_STAGES"
+    --feedback_mid "$FEEDBACK_MID"
+    --feedback_lr_mult "$FEEDBACK_LR_MULT"
+  )
 fi
 
 case "$MODE" in
@@ -88,6 +93,7 @@ esac
 echo "Mode: $MODE; max batches/epoch: $MAX_TRAIN_BATCHES; target epochs: $EPOCHS"
 echo "Model: $MODEL; feedback stages: $FEEDBACK_STAGES; feedback mid: $FEEDBACK_MID"
 echo "Learning rate: $LEARNING_RATE"
+echo "Feedback learning-rate multiplier: $FEEDBACK_LR_MULT"
 echo "Validation: 0801-$VALIDATION_END"
 echo "Output: experiment/all_runs/$RUN_NAME"
 

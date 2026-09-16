@@ -2,6 +2,7 @@
 """Check feedback initialization, parameter budget, and gradient flow."""
 from pathlib import Path
 import sys
+from types import SimpleNamespace
 
 import torch
 
@@ -12,6 +13,7 @@ sys.path.insert(0, str(LFMN_ROOT))
 
 from model.lfmn import Net as BaselineNet  # noqa: E402
 from model.lfmnfeedback import Net as FeedbackNet  # noqa: E402
+import utility  # noqa: E402
 
 
 def main():
@@ -62,12 +64,35 @@ def main():
     if gradient_sum == 0.0:
         raise RuntimeError('feedback output projection receives no gradient')
 
+    optimizer_args = SimpleNamespace(
+        lr=1e-5,
+        feedback_lr_mult=10.0,
+        weight_decay=0,
+        optimizer='ADAM',
+        betas=(0.9, 0.999),
+        epsilon=1e-8,
+        decay='200-400-600-800',
+        gamma=0.5,
+    )
+    optimizer = utility.make_optimizer(optimizer_args, feedback)
+    group_lrs = [group['lr'] for group in optimizer.param_groups]
+    group_params = [
+        sum(parameter.numel() for parameter in group['params'])
+        for group in optimizer.param_groups
+    ]
+    if group_lrs != [1e-5, 1e-4]:
+        raise RuntimeError('unexpected optimizer group learning rates: {}'.format(group_lrs))
+    if group_params != [baseline_params, added_params]:
+        raise RuntimeError('unexpected optimizer parameter groups: {}'.format(group_params))
+
     print('device: {}'.format(device))
     print('baseline parameters: {:,}'.format(baseline_params))
     print('feedback parameters: {:,}'.format(feedback_params))
     print('added parameters: {:,} ({:.3f}%)'.format(added_params, added_percent))
     print('initial max output difference: {:.1f}'.format(max_abs_difference))
     print('feedback output gradient sum: {:.6f}'.format(gradient_sum))
+    print('optimizer group learning rates: {}'.format(group_lrs))
+    print('optimizer group parameters: {}'.format(group_params))
     print('feedback branch validation passed')
 
 

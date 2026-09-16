@@ -54,6 +54,8 @@ parser.add_argument('--feedback_mid', type=int, default=8,
                     help='hidden channels in each feedback correction branch')
 parser.add_argument('--feedback_scale', type=float, default=0.1,
                     help='maximum magnitude of bounded feedback corrections')
+parser.add_argument('--feedback_lr_mult', type=float, default=1.0,
+                    help='learning-rate multiplier for feedback parameters')
 
 parser.add_argument('--act', type=str, default='relu',
                     help='activation function')

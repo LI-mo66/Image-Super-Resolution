@@ -285,7 +285,42 @@ def make_optimizer(args, target):
         make optimizer and scheduler together
     '''
     # optimizer
-    trainable = filter(lambda x: x.requires_grad, target.parameters())
+    trainable_named = [
+        (name, parameter)
+        for name, parameter in target.named_parameters()
+        if parameter.requires_grad
+    ]
+    feedback_lr_mult = getattr(args, 'feedback_lr_mult', 1.0)
+    if feedback_lr_mult <= 0:
+        raise ValueError('feedback_lr_mult must be positive')
+    if feedback_lr_mult != 1.0:
+        feedback = [
+            parameter for name, parameter in trainable_named
+            if name.startswith('feedback.') or '.feedback.' in name
+        ]
+        backbone = [
+            parameter for name, parameter in trainable_named
+            if not (name.startswith('feedback.') or '.feedback.' in name)
+        ]
+        if not feedback:
+            raise ValueError(
+                'feedback_lr_mult != 1 requires a model with feedback parameters'
+            )
+        trainable = [
+            {'params': backbone, 'lr': args.lr, 'group_name': 'backbone'},
+            {
+                'params': feedback,
+                'lr': args.lr * feedback_lr_mult,
+                'group_name': 'feedback',
+            },
+        ]
+        print(
+            'Optimizer learning rates: backbone={:.2e}; feedback={:.2e} (x{:g})'.format(
+                args.lr, args.lr * feedback_lr_mult, feedback_lr_mult
+            )
+        )
+    else:
+        trainable = [parameter for _, parameter in trainable_named]
     kwargs_optimizer = {'lr': args.lr, 'weight_decay': args.weight_decay}
 
     if args.optimizer == 'SGD':
