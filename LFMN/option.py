@@ -60,6 +60,14 @@ parser.add_argument('--freq_scale', type=float, default=0.1,
                     help='maximum frequency-prior correction magnitude')
 parser.add_argument('--freq_lr_mult', type=float, default=1.0,
                     help='learning-rate multiplier for frequency-prior parameters')
+parser.add_argument('--rdsm_mid', type=int, default=4,
+                    help='hidden channels in the shared RDSM demand router')
+parser.add_argument('--rdsm_kernel', type=int, default=3,
+                    help='odd spatial kernel size in the shared RDSM router')
+parser.add_argument('--rdsm_scale', type=float, default=0.5,
+                    help='maximum relative change to original SFML strength')
+parser.add_argument('--rdsm_lr_mult', type=float, default=1.0,
+                    help='learning-rate multiplier for RDSM-only parameters')
 
 parser.add_argument('--act', type=str, default='relu',
                     help='activation function')

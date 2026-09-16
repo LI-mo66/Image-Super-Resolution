@@ -292,13 +292,20 @@ def make_optimizer(args, target):
     ]
     feedback_lr_mult = getattr(args, 'feedback_lr_mult', 1.0)
     freq_lr_mult = getattr(args, 'freq_lr_mult', 1.0)
+    rdsm_lr_mult = getattr(args, 'rdsm_lr_mult', 1.0)
     if feedback_lr_mult <= 0:
         raise ValueError('feedback_lr_mult must be positive')
     if freq_lr_mult <= 0:
         raise ValueError('freq_lr_mult must be positive')
-    if feedback_lr_mult != 1.0 and freq_lr_mult != 1.0:
+    if rdsm_lr_mult <= 0:
+        raise ValueError('rdsm_lr_mult must be positive')
+    custom_multipliers = sum(
+        multiplier != 1.0
+        for multiplier in (feedback_lr_mult, freq_lr_mult, rdsm_lr_mult)
+    )
+    if custom_multipliers > 1:
         raise ValueError(
-            'feedback_lr_mult and freq_lr_mult cannot both differ from 1'
+            'only one branch learning-rate multiplier may differ from 1'
         )
     if feedback_lr_mult != 1.0:
         feedback = [
@@ -350,6 +357,32 @@ def make_optimizer(args, target):
         print(
             'Optimizer learning rates: backbone={:.2e}; frequency={:.2e} (x{:g})'.format(
                 args.lr, args.lr * freq_lr_mult, freq_lr_mult
+            )
+        )
+    elif rdsm_lr_mult != 1.0:
+        rdsm = [
+            parameter for name, parameter in trainable_named
+            if name.startswith('rdsm.') or '.rdsm.' in name
+        ]
+        backbone = [
+            parameter for name, parameter in trainable_named
+            if not (name.startswith('rdsm.') or '.rdsm.' in name)
+        ]
+        if not rdsm:
+            raise ValueError(
+                'rdsm_lr_mult != 1 requires a model with rdsm parameters'
+            )
+        trainable = [
+            {'params': backbone, 'lr': args.lr, 'group_name': 'backbone'},
+            {
+                'params': rdsm,
+                'lr': args.lr * rdsm_lr_mult,
+                'group_name': 'rdsm',
+            },
+        ]
+        print(
+            'Optimizer learning rates: backbone={:.2e}; RDSM={:.2e} (x{:g})'.format(
+                args.lr, args.lr * rdsm_lr_mult, rdsm_lr_mult
             )
         )
     else:

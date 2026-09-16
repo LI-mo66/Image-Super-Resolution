@@ -8,12 +8,13 @@ param(
     [string]$DataRoot = 'E:\fuxian_LFMN_jianghe\datasets',
     [string]$SaveName = '',
     [string]$LoadName = '',
-    [ValidateSet('LFMN', 'LFMNFeedback', 'LFMNFreq', 'LFMNOverlap')]
+    [ValidateSet('LFMN', 'LFMNFeedback', 'LFMNFreq', 'LFMNOverlap', 'LFMNRDSM')]
     [string]$Model = 'LFMN',
     [string]$Loss = '1*L1',
     [double]$LearningRate = 2e-4,
     [double]$FeedbackLrMult = 1,
-    [double]$FreqLrMult = 1
+    [double]$FreqLrMult = 1,
+    [double]$RdsmLrMult = 1
 )
 
 $ErrorActionPreference = 'Stop'
@@ -74,6 +75,9 @@ if ($Model -eq 'LFMNFeedback') {
 }
 if ($Model -eq 'LFMNFreq') {
     $arguments += @('--freq_lr_mult', $FreqLrMult)
+}
+if ($Model -eq 'LFMNRDSM') {
+    $arguments += @('--rdsm_lr_mult', $RdsmLrMult)
 }
 if ($Mode -eq 'finetune') {
     $arguments += @('--pre_train', $checkpoint, '--save', $SaveName)

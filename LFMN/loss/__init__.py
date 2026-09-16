@@ -28,6 +28,12 @@ class Loss(nn.modules.loss._Loss):
             elif loss_type == 'HFL1':
                 module = import_module('loss.high_frequency')
                 loss_function = module.HighFrequencyL1Loss()
+            elif loss_type == 'RRES':
+                module = import_module('loss.rdsm')
+                loss_function = module.ResidualProbeLoss()
+            elif loss_type == 'RDEM':
+                module = import_module('loss.rdsm')
+                loss_function = module.DemandDistillationLoss()
             elif loss_type.find('VGG') >= 0:
                 module = import_module('loss.vgg')
                 loss_function = getattr(module, 'VGG')(
@@ -72,10 +78,14 @@ class Loss(nn.modules.loss._Loss):
         if args.load != '': self.load(ckp.dir, cpu=args.cpu)
 
     def forward(self, sr, hr):
+        sr_image = sr[0] if isinstance(sr, (tuple, list)) else sr
         losses = []
         for i, l in enumerate(self.loss):
             if l['function'] is not None:
-                loss = l['function'](sr, hr)
+                if getattr(l['function'], 'uses_auxiliary_output', False):
+                    loss = l['function'](sr, hr)
+                else:
+                    loss = l['function'](sr_image, hr)
                 effective_loss = l['weight'] * loss
                 losses.append(effective_loss)
                 self.log[-1, i] += effective_loss.item()

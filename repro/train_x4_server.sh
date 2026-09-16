@@ -13,6 +13,7 @@ LEARNING_RATE="${9:-2e-4}"
 FEEDBACK_LR_MULT="${10:-1}"
 LOSS_SPEC="${11:-1*L1}"
 FREQ_LR_MULT="${12:-1}"
+RDSM_LR_MULT="${13:-1}"
 
 if [[ "$MODE" != "scratch" && "$MODE" != "finetune" && "$MODE" != "resume" ]]; then
   echo "Mode must be scratch, finetune, or resume." >&2
@@ -26,8 +27,8 @@ if (( MAX_TRAIN_BATCHES < 0 || EPOCHS < 1 )); then
   echo "MaxTrainBatches must be nonnegative and Epochs must be at least 1." >&2
   exit 2
 fi
-if [[ "$MODEL" != "LFMN" && "$MODEL" != "LFMNFeedback" && "$MODEL" != "LFMNFreq" && "$MODEL" != "LFMNOverlap" ]]; then
-  echo "Model must be LFMN, LFMNFeedback, LFMNFreq, or LFMNOverlap." >&2
+if [[ "$MODEL" != "LFMN" && "$MODEL" != "LFMNFeedback" && "$MODEL" != "LFMNFreq" && "$MODEL" != "LFMNOverlap" && "$MODEL" != "LFMNRDSM" ]]; then
+  echo "Model must be LFMN, LFMNFeedback, LFMNFreq, LFMNOverlap, or LFMNRDSM." >&2
   exit 2
 fi
 
@@ -88,6 +89,9 @@ fi
 if [[ "$MODEL" == "LFMNFreq" ]]; then
   args+=(--freq_lr_mult "$FREQ_LR_MULT")
 fi
+if [[ "$MODEL" == "LFMNRDSM" ]]; then
+  args+=(--rdsm_lr_mult "$RDSM_LR_MULT")
+fi
 
 case "$MODE" in
   scratch) args+=(--save "$RUN_NAME") ;;
@@ -100,6 +104,7 @@ echo "Model: $MODEL; feedback stages: $FEEDBACK_STAGES; feedback mid: $FEEDBACK_
 echo "Learning rate: $LEARNING_RATE"
 echo "Feedback learning-rate multiplier: $FEEDBACK_LR_MULT"
 echo "Frequency-prior learning-rate multiplier: $FREQ_LR_MULT"
+echo "RDSM learning-rate multiplier: $RDSM_LR_MULT"
 echo "Loss: $LOSS_SPEC"
 echo "Validation: 0801-$VALIDATION_END"
 echo "Output: experiment/all_runs/$RUN_NAME"

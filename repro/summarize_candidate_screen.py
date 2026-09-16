@@ -19,9 +19,16 @@ def load_curve(run_dir, filename):
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('screen_dir', type=Path)
+    parser.add_argument(
+        '--names', nargs='+',
+        default=('baseline', 'overlap_control', 'shared_frequency', 'hf_loss'),
+        help='ordered run-directory names; the first one is the baseline',
+    )
     args = parser.parse_args()
 
-    names = ('baseline', 'overlap_control', 'shared_frequency', 'hf_loss')
+    names = tuple(args.names)
+    if len(names) < 2:
+        raise ValueError('at least a baseline and one candidate are required')
     curves = {}
     for name in names:
         run_dir = args.screen_dir / name
@@ -30,7 +37,7 @@ def main():
             'ssim': load_curve(run_dir, 'ssim_log.pt'),
         }
 
-    baseline = curves['baseline']['psnr']
+    baseline = curves[names[0]]['psnr']
     print('| candidate | final PSNR | best PSNR | last-3 mean | final delta | last-3 delta | final SSIM |')
     print('| --- | ---: | ---: | ---: | ---: | ---: | ---: |')
     for name in names:
