@@ -313,14 +313,39 @@ def make_optimizer(args, target):
 
         def save(self, save_dir):
             torch.save(self.state_dict(), self.get_dir(save_dir))
+            torch.save(
+                self.scheduler.state_dict(),
+                self.get_scheduler_dir(save_dir)
+            )
 
         def load(self, load_dir, epoch=1):
             self.load_state_dict(torch.load(self.get_dir(load_dir)))
-            if epoch > 1:
-                for _ in range(epoch): self.scheduler.step()
+            scheduler_path = self.get_scheduler_dir(load_dir)
+            if os.path.exists(scheduler_path):
+                self.scheduler.load_state_dict(torch.load(scheduler_path))
+            else:
+                # Backward compatibility for checkpoints created before the
+                # scheduler state was saved. Reconstruct the closed-form LR
+                # without applying milestone decay twice.
+                self.scheduler.last_epoch = epoch
+                decay_count = sum(
+                    count
+                    for milestone, count in self.scheduler.milestones.items()
+                    if milestone <= epoch
+                )
+                lrs = [
+                    base_lr * self.scheduler.gamma ** decay_count
+                    for base_lr in self.scheduler.base_lrs
+                ]
+                for param_group, lr in zip(self.param_groups, lrs):
+                    param_group['lr'] = lr
+                self.scheduler._last_lr = lrs
 
         def get_dir(self, dir_path):
             return os.path.join(dir_path, 'optimizer.pt')
+
+        def get_scheduler_dir(self, dir_path):
+            return os.path.join(dir_path, 'scheduler.pt')
 
         def schedule(self):
             self.scheduler.step()
