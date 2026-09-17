@@ -13,6 +13,7 @@ LEARNING_RATE="${9:-2e-4}"
 FEEDBACK_LR_MULT="${10:-1}"
 LOSS_SPEC="${11:-1*L1}"
 FREQ_LR_MULT="${12:-1}"
+RDSM_LR_MULT="${13:-1}"
 PRIOR_UPDATE_MODE="${14:-state}"
 
 if [[ "$MODE" != "scratch" && "$MODE" != "finetune" && "$MODE" != "resume" ]]; then
