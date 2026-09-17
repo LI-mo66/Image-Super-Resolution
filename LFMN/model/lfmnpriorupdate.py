@@ -21,8 +21,11 @@ class PriorUpdate(nn.Module):
 
 
 class Net(BaselineNet):
-    def __init__(self, scale=4):
+    def __init__(self, scale=4, mode='state'):
         super().__init__(scale=scale)
+        if mode not in ('shallow', 'state', 'change'):
+            raise ValueError('unknown prior update mode: ' + mode)
+        self.mode = mode
         self.prior_update = PriorUpdate()
         self.update_enabled = True  # Diagnostic ablation; not a training option.
 
@@ -30,6 +33,7 @@ class Net(BaselineNet):
         x0 = self.first_conv(x)
         fs = self.fea(x)
         feat = x0
+        previous_state = None
         for i in range(len(self.blocks)):
             prev = feat
             beta, gamma = self.sfmls[i](fs)
@@ -38,7 +42,11 @@ class Net(BaselineNet):
             s = local_attn(global_attn(fm), self.patch_size[i])
             feat = self.esas[i](prev + self.mid_convs[i](s))
             if i == 3 and self.update_enabled:
-                fs = fs + self.prior_update(fs, feat)
+                source = fs if self.mode == 'shallow' else feat
+                if self.mode == 'change':
+                    source = feat - previous_state
+                fs = fs + self.prior_update(fs, source)
+            previous_state = feat
         if self.scale == 4:
             u = self.lrelu(self.pixel_shuffle(self.upconv1(x0 + feat)))
             u = self.lrelu(self.pixel_shuffle(self.upconv2(u)))
@@ -50,4 +58,7 @@ class Net(BaselineNet):
 
 
 def make_model(args):
-    return Net(scale=args.scale[0])
+    return Net(
+        scale=args.scale[0],
+        mode=getattr(args, 'prior_update_mode', 'state'),
+    )

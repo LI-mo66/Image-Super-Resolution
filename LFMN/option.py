@@ -73,6 +73,10 @@ parser.add_argument('--rdsm_lr_mult', type=float, default=1.0,
 
 parser.add_argument('--act', type=str, default='relu',
                     help='activation function')
+parser.add_argument('--prior_update_mode', type=str, default='state',
+                    choices=('shallow', 'state', 'change'),
+                    help='source used for the mid-network shared-prior update')
+
 parser.add_argument('--pre_train', type=str, default='',
                     help='pre-trained model directory')
 parser.add_argument('--extend', type=str, default='.',
