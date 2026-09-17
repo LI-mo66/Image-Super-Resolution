@@ -42,7 +42,8 @@ class Net(BaselineNet):
             s = local_attn(global_attn(fm), self.patch_size[i])
             feat = self.esas[i](prev + self.mid_convs[i](s))
             if i == 3 and self.update_enabled:
-                source = fs if self.mode == 'shallow' else feat
+                # Repeat shallow channels to match the 48-channel state input.
+                source = torch.cat((fs, fs[:, :16]), dim=1) if self.mode == 'shallow' else feat
                 if self.mode == 'change':
                     source = feat - previous_state
                 fs = fs + self.prior_update(fs, source)
