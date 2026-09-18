@@ -77,6 +77,10 @@ parser.add_argument('--prior_update_mode', type=str, default='state',
                     choices=('shallow', 'state', 'change'),
                     help='source used for the mid-network shared-prior update')
 
+parser.add_argument('--prior_proxy_mode', type=str, default='a1',
+                    choices=('a1',),
+                    help='anchored prior-evolution proxy variant')
+
 parser.add_argument('--pre_train', type=str, default='',
                     help='pre-trained model directory')
 parser.add_argument('--extend', type=str, default='.',
@@ -118,6 +122,11 @@ parser.add_argument('--lr', type=float, default=1e-4,
                     help='learning rate')
 parser.add_argument('--decay', type=str, default='100',
                     help='learning rate decay type')
+parser.add_argument('--scheduler', type=str, default='multistep',
+                    choices=('multistep', 'cosine'),
+                    help='learning-rate scheduler')
+parser.add_argument('--eta_min', type=float, default=0.0,
+                    help='minimum learning rate for cosine scheduler')
 parser.add_argument('--gamma', type=float, default=0.5,
                     help='learning rate decay factor for step decay')
 parser.add_argument('--optimizer', default='ADAM',

@@ -401,9 +401,19 @@ def make_optimizer(args, target):
         kwargs_optimizer['eps'] = args.epsilon
 
     # scheduler
-    milestones = list(map(lambda x: int(x), args.decay.split('-')))
-    kwargs_scheduler = {'milestones': milestones, 'gamma': args.gamma}
-    scheduler_class = lrs.MultiStepLR
+    scheduler_name = getattr(args, 'scheduler', 'multistep').lower()
+    if scheduler_name == 'cosine':
+        scheduler_class = lrs.CosineAnnealingLR
+        kwargs_scheduler = {
+            'T_max': max(1, int(args.epochs)),
+            'eta_min': getattr(args, 'eta_min', 0.0),
+        }
+    elif scheduler_name == 'multistep':
+        milestones = list(map(lambda x: int(x), args.decay.split('-')))
+        kwargs_scheduler = {'milestones': milestones, 'gamma': args.gamma}
+        scheduler_class = lrs.MultiStepLR
+    else:
+        raise ValueError('unknown scheduler: {}'.format(args.scheduler))
 
     class CustomOptimizer(optimizer_class):
         def __init__(self, *args, **kwargs):
