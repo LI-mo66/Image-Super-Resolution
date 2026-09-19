@@ -133,6 +133,8 @@ parser.add_argument('--scheduler', type=str, default='multistep',
                     help='learning-rate scheduler')
 parser.add_argument('--eta_min', type=float, default=0.0,
                     help='minimum learning rate for cosine scheduler')
+parser.add_argument('--scheduler_t_max', type=int, default=0,
+                    help='cosine horizon; 0 uses --epochs')
 parser.add_argument('--gamma', type=float, default=0.5,
                     help='learning rate decay factor for step decay')
 parser.add_argument('--optimizer', default='ADAM',

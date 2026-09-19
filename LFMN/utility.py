@@ -466,8 +466,9 @@ def make_optimizer(args, target):
     scheduler_name = getattr(args, 'scheduler', 'multistep').lower()
     if scheduler_name == 'cosine':
         scheduler_class = lrs.CosineAnnealingLR
+        configured_t_max = getattr(args, 'scheduler_t_max', 0)
         kwargs_scheduler = {
-            'T_max': max(1, int(args.epochs)),
+            'T_max': max(1, int(configured_t_max or args.epochs)),
             'eta_min': getattr(args, 'eta_min', 0.0),
         }
     elif scheduler_name == 'multistep':
