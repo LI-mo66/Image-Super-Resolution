@@ -145,6 +145,15 @@ class Trainer():
 
         if not self.args.test_only:
             self.ckp.save(self, epoch)
+        else:
+            # Test-only runs still need machine-readable, full-precision metrics.
+            # Without these files downstream comparisons can only recover the
+            # rounded values printed in log.txt.
+            torch.save(self.ckp.log, self.ckp.get_path('psnr_log.pt'))
+            torch.save(
+                self.ckp.log_ssim,
+                self.ckp.get_path('ssim_log.pt'),
+            )
 
         self.ckp.write_log(
             'Total: {:.2f}s\n'.format(timer_test.toc()), refresh=True
