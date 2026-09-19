@@ -293,15 +293,21 @@ def make_optimizer(args, target):
     feedback_lr_mult = getattr(args, 'feedback_lr_mult', 1.0)
     freq_lr_mult = getattr(args, 'freq_lr_mult', 1.0)
     rdsm_lr_mult = getattr(args, 'rdsm_lr_mult', 1.0)
+    stage_diff_lr_mult = getattr(args, 'stage_diff_lr_mult', 1.0)
     if feedback_lr_mult <= 0:
         raise ValueError('feedback_lr_mult must be positive')
     if freq_lr_mult <= 0:
         raise ValueError('freq_lr_mult must be positive')
     if rdsm_lr_mult <= 0:
         raise ValueError('rdsm_lr_mult must be positive')
+    if stage_diff_lr_mult <= 0:
+        raise ValueError('stage_diff_lr_mult must be positive')
     custom_multipliers = sum(
         multiplier != 1.0
-        for multiplier in (feedback_lr_mult, freq_lr_mult, rdsm_lr_mult)
+        for multiplier in (
+            feedback_lr_mult, freq_lr_mult, rdsm_lr_mult,
+            stage_diff_lr_mult,
+        )
     )
     if custom_multipliers > 1:
         raise ValueError(
@@ -383,6 +389,32 @@ def make_optimizer(args, target):
         print(
             'Optimizer learning rates: backbone={:.2e}; RDSM={:.2e} (x{:g})'.format(
                 args.lr, args.lr * rdsm_lr_mult, rdsm_lr_mult
+            )
+        )
+    elif stage_diff_lr_mult != 1.0:
+        stage_diff = [
+            parameter for name, parameter in trainable_named
+            if name.startswith('stage_diff.') or '.stage_diff.' in name
+        ]
+        backbone = [
+            parameter for name, parameter in trainable_named
+            if not (name.startswith('stage_diff.') or '.stage_diff.' in name)
+        ]
+        if not stage_diff:
+            raise ValueError(
+                'stage_diff_lr_mult != 1 requires stage_diff parameters'
+            )
+        trainable = [
+            {'params': backbone, 'lr': args.lr, 'group_name': 'backbone'},
+            {
+                'params': stage_diff,
+                'lr': args.lr * stage_diff_lr_mult,
+                'group_name': 'stage_diff',
+            },
+        ]
+        print(
+            'Optimizer learning rates: backbone={:.2e}; stage_diff={:.2e} (x{:g})'.format(
+                args.lr, args.lr * stage_diff_lr_mult, stage_diff_lr_mult
             )
         )
     else:

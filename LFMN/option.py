@@ -70,6 +70,8 @@ parser.add_argument('--rdsm_direct_scale', type=float, default=0.1,
                     help='fixed maximum modulation magnitude for direct RDSM-v2')
 parser.add_argument('--rdsm_lr_mult', type=float, default=1.0,
                     help='learning-rate multiplier for RDSM-only parameters')
+parser.add_argument('--stage_diff_lr_mult', type=float, default=1.0,
+                    help='learning-rate multiplier for stage-difference gates')
 
 parser.add_argument('--act', type=str, default='relu',
                     help='activation function')
