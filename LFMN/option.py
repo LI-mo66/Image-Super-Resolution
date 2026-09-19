@@ -72,6 +72,8 @@ parser.add_argument('--rdsm_lr_mult', type=float, default=1.0,
                     help='learning-rate multiplier for RDSM-only parameters')
 parser.add_argument('--stage_diff_lr_mult', type=float, default=1.0,
                     help='learning-rate multiplier for stage-difference gates')
+parser.add_argument('--token_refine_iters', type=int, default=3,
+                    help='test-time TAB prototype refinement iterations')
 
 parser.add_argument('--act', type=str, default='relu',
                     help='activation function')

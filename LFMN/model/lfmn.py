@@ -131,6 +131,18 @@ def center_iter(x, means, buckets=None):
     return means.squeeze(0)
 
 
+def center_iter_eval(x, means):
+    """Evaluation-only center update without atomic scatter accumulation."""
+    _, buckets = dists_and_buckets(x, means)
+    assignments = F.one_hot(
+        buckets, num_classes=means.shape[0]
+    ).to(dtype=x.dtype)
+    bins = assignments.sum(dim=(0, 1))
+    sums = torch.einsum('blc,bld->cd', assignments, x)
+    updated = F.normalize(sums, dim=-1).type(x.dtype)
+    return torch.where((bins == 0).unsqueeze(-1), means, updated)
+
+
 class IASA(nn.Module):
     def __init__(self, dim, qk_dim, heads, group_size):
         super().__init__()
@@ -242,6 +254,9 @@ class TAB(nn.Module):
         self.n_iter = n_iter
         self.ema_decay = ema_decay
         self.num_tokens = num_tokens
+        # Baseline evaluation uses the stored EMA prototypes. Candidate models
+        # may opt into input-adaptive refinement without changing parameters.
+        self.eval_refine_iters = 0
         self.norm = nn.LayerNorm(dim)
         self.mlp = PreNorm(dim, ConvFFN(dim, mlp_dim))
         self.irca_attn = IRCA(dim, qk_dim, heads)
@@ -268,6 +283,12 @@ class TAB(nn.Module):
             with torch.no_grad():
                 for _ in range(self.n_iter - 1):
                     x_means = center_iter(F.normalize(x, dim=-1), F.normalize(x_means, dim=-1))
+        elif self.eval_refine_iters > 0:
+            with torch.no_grad():
+                for _ in range(self.eval_refine_iters):
+                    x_means = center_iter_eval(
+                        F.normalize(x, dim=-1), F.normalize(x_means, dim=-1)
+                    )
         k_global, v_global, x_means = self.irca_attn(x, x_means)
         with torch.no_grad():
             x_scores = torch.einsum('b i c,j c->b i j',
