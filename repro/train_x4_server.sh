@@ -16,6 +16,7 @@ FREQ_LR_MULT="${12:-1}"
 RDSM_LR_MULT="${13:-1}"
 PRIOR_UPDATE_MODE="${14:-state}"
 STAGE_DIFF_LR_MULT="${15:-1}"
+CROSS_WINDOW_LR_MULT="${16:-1}"
 
 if [[ "$MODE" != "scratch" && "$MODE" != "finetune" && "$MODE" != "resume" ]]; then
   echo "Mode must be scratch, finetune, or resume." >&2
@@ -29,7 +30,7 @@ if (( MAX_TRAIN_BATCHES < 0 || EPOCHS < 1 )); then
   echo "MaxTrainBatches must be nonnegative and Epochs must be at least 1." >&2
   exit 2
 fi
-if [[ "$MODEL" != "LFMN" && "$MODEL" != "LFMNFeedback" && "$MODEL" != "LFMNFreq" && "$MODEL" != "LFMNOverlap" && "$MODEL" != "LFMNRDSM" && "$MODEL" != "LFMNRDSMDirect" && "$MODEL" != "LFMNBidirectional" && "$MODEL" != "LFMNPriorUpdate" && "$MODEL" != "LFMNPriorProxy" && "$MODEL" != "LFMNStageDiff" ]]; then
+if [[ "$MODEL" != "LFMN" && "$MODEL" != "LFMNFeedback" && "$MODEL" != "LFMNFreq" && "$MODEL" != "LFMNOverlap" && "$MODEL" != "LFMNRDSM" && "$MODEL" != "LFMNRDSMDirect" && "$MODEL" != "LFMNBidirectional" && "$MODEL" != "LFMNPriorUpdate" && "$MODEL" != "LFMNPriorProxy" && "$MODEL" != "LFMNStageDiff" && "$MODEL" != "LFMNCrossWindow" ]]; then
   echo "Unsupported model: $MODEL" >&2
   exit 2
 fi
@@ -101,6 +102,9 @@ fi
 if [[ "$MODEL" == "LFMNStageDiff" ]]; then
   args+=(--stage_diff_lr_mult "$STAGE_DIFF_LR_MULT")
 fi
+if [[ "$MODEL" == "LFMNCrossWindow" ]]; then
+  args+=(--cross_window_lr_mult "$CROSS_WINDOW_LR_MULT")
+fi
 
 case "$MODE" in
   scratch) args+=(--save "$RUN_NAME") ;;
@@ -115,6 +119,7 @@ echo "Feedback learning-rate multiplier: $FEEDBACK_LR_MULT"
 echo "Frequency-prior learning-rate multiplier: $FREQ_LR_MULT"
 echo "RDSM learning-rate multiplier: $RDSM_LR_MULT"
 echo "Stage-difference learning-rate multiplier: $STAGE_DIFF_LR_MULT"
+echo "Cross-window learning-rate multiplier: $CROSS_WINDOW_LR_MULT"
 echo "Loss: $LOSS_SPEC"
 echo "Validation: 0801-$VALIDATION_END"
 echo "Output: experiment/all_runs/$RUN_NAME"

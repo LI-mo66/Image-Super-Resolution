@@ -294,6 +294,7 @@ def make_optimizer(args, target):
     freq_lr_mult = getattr(args, 'freq_lr_mult', 1.0)
     rdsm_lr_mult = getattr(args, 'rdsm_lr_mult', 1.0)
     stage_diff_lr_mult = getattr(args, 'stage_diff_lr_mult', 1.0)
+    cross_window_lr_mult = getattr(args, 'cross_window_lr_mult', 1.0)
     if feedback_lr_mult <= 0:
         raise ValueError('feedback_lr_mult must be positive')
     if freq_lr_mult <= 0:
@@ -302,11 +303,13 @@ def make_optimizer(args, target):
         raise ValueError('rdsm_lr_mult must be positive')
     if stage_diff_lr_mult <= 0:
         raise ValueError('stage_diff_lr_mult must be positive')
+    if cross_window_lr_mult <= 0:
+        raise ValueError('cross_window_lr_mult must be positive')
     custom_multipliers = sum(
         multiplier != 1.0
         for multiplier in (
             feedback_lr_mult, freq_lr_mult, rdsm_lr_mult,
-            stage_diff_lr_mult,
+            stage_diff_lr_mult, cross_window_lr_mult,
         )
     )
     if custom_multipliers > 1:
@@ -415,6 +418,33 @@ def make_optimizer(args, target):
         print(
             'Optimizer learning rates: backbone={:.2e}; stage_diff={:.2e} (x{:g})'.format(
                 args.lr, args.lr * stage_diff_lr_mult, stage_diff_lr_mult
+            )
+        )
+    elif cross_window_lr_mult != 1.0:
+        cross_window = [
+            parameter for name, parameter in trainable_named
+            if name.startswith('cross_window.') or '.cross_window.' in name
+        ]
+        backbone = [
+            parameter for name, parameter in trainable_named
+            if not (name.startswith('cross_window.') or '.cross_window.' in name)
+        ]
+        if not cross_window:
+            raise ValueError(
+                'cross_window_lr_mult != 1 requires cross_window parameters'
+            )
+        trainable = [
+            {'params': backbone, 'lr': args.lr, 'group_name': 'backbone'},
+            {
+                'params': cross_window,
+                'lr': args.lr * cross_window_lr_mult,
+                'group_name': 'cross_window',
+            },
+        ]
+        print(
+            'Optimizer learning rates: backbone={:.2e}; cross_window={:.2e} (x{:g})'.format(
+                args.lr, args.lr * cross_window_lr_mult,
+                cross_window_lr_mult,
             )
         )
     else:
