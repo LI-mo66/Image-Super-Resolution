@@ -10,6 +10,7 @@ TEACHER_CHECKPOINT="${RGCRD_TEACHER_CHECKPOINT:-$PROJECT_ROOT/repro/teacher_weig
 EPOCHS="${EPOCHS:-40}"
 GROUPS="${GROUPS:-b0 c1 m0 m1}"
 GPU="${GPU:-0}"
+ALLOW_EXISTING="${ALLOW_EXISTING:-0}"
 BATCH_SIZE="${BATCH_SIZE:-4}"
 PATCH_SIZE="${PATCH_SIZE:-256}"
 N_THREADS="${N_THREADS:-8}"
@@ -19,7 +20,7 @@ LAMBDA_REL="${LAMBDA_REL:-0.25}"
 LAMBDA_EVO="${LAMBDA_EVO:-0.125}"
 OUTPUT="$PROJECT_ROOT/experiment/all_runs/$RUN_NAME"
 
-if [[ -e "$OUTPUT" ]]; then
+if [[ -e "$OUTPUT" && "$ALLOW_EXISTING" != "1" ]]; then
   printf 'Output already exists: %s\n' "$OUTPUT" >&2
   exit 2
 fi
@@ -37,16 +38,16 @@ python "$SCRIPT_DIR/check_rgcrd_teacher.py" \
   --repo "$SWINIR_REPO" --checkpoint "$TEACHER_CHECKPOINT"
 mkdir -p "$OUTPUT"
 
-contains_group() {
-  [[ " $GROUPS " == *" $1 "* ]]
-}
-
 run_one() {
   local name="$1"
   local model="$2"
   local mode="$3"
   local run="$RUN_NAME/$name"
   local run_output="$OUTPUT/$name"
+  if [[ -e "$run_output" ]]; then
+    printf 'Group output already exists: %s\n' "$run_output" >&2
+    exit 2
+  fi
   mkdir -p "$run_output"
   printf '\n=== %s (model=%s, RGCRD=%s) ===\n' "$name" "$model" "$mode"
   (
@@ -90,12 +91,23 @@ run_one() {
   ) 2>&1 | tee "$run_output/console.log"
 }
 
-if contains_group b0; then run_one b0 LFMN off; fi
-if contains_group c1; then run_one c1 LFMN output; fi
-if contains_group m0; then run_one m0 LFMNRGCRD relation; fi
-if contains_group m1; then run_one m1 LFMNRGCRD full; fi
+for group in $GROUPS; do
+  case "$group" in
+    b0) run_one b0 LFMN off ;;
+    c1) run_one c1 LFMN output ;;
+    m0) run_one m0 LFMNRGCRD relation ;;
+    m1) run_one m1 LFMNRGCRD full ;;
+    *)
+      printf 'Unknown RGCRD group: %s\n' "$group" >&2
+      exit 2
+      ;;
+  esac
+done
 
-if contains_group b0 && contains_group c1 && contains_group m0 && contains_group m1; then
+if [[ -f "$OUTPUT/b0/psnr_log.pt" \
+   && -f "$OUTPUT/c1/psnr_log.pt" \
+   && -f "$OUTPUT/m0/psnr_log.pt" \
+   && -f "$OUTPUT/m1/psnr_log.pt" ]]; then
   python "$SCRIPT_DIR/summarize_rgcrd_screen.py" "$OUTPUT" | tee "$OUTPUT/summary.txt"
 fi
 printf '\nRGCRD screening output: %s\n' "$OUTPUT"
