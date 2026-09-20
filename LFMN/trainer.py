@@ -42,8 +42,22 @@ class Trainer():
                     'relation/full RGCRD requires --model LFMNRGCRD'
                 )
             device = torch.device('cpu' if args.cpu else 'cuda')
-            self.rgcrd = RGCRDCriterion(args).to(device)
-            self.rgcrd_teacher = SwinIRTeacher(args, device)
+            # The DataLoader sampler and worker seeds are materialized when
+            # iteration begins, after Trainer construction.  Building SwinIR
+            # initializes many random parameters before loading its checkpoint;
+            # preserve RNG state so B0/M0/M1 see the same shuffle/crop stream.
+            cpu_rng_state = torch.get_rng_state()
+            cuda_rng_states = (
+                torch.cuda.get_rng_state_all()
+                if device.type == 'cuda' else None
+            )
+            try:
+                self.rgcrd = RGCRDCriterion(args).to(device)
+                self.rgcrd_teacher = SwinIRTeacher(args, device)
+            finally:
+                torch.set_rng_state(cpu_rng_state)
+                if cuda_rng_states is not None:
+                    torch.cuda.set_rng_state_all(cuda_rng_states)
             self.rgcrd_teacher_microbatch = max(
                 0, int(args.rgcrd_teacher_microbatch)
             )
