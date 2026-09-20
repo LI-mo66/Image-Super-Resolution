@@ -77,6 +77,43 @@ parser.add_argument('--cross_window_lr_mult', type=float, default=1.0,
 parser.add_argument('--token_refine_iters', type=int, default=3,
                     help='test-time TAB prototype refinement iterations')
 
+# Training-only reliability-gated cross-stage relational distillation (RGCRD).
+parser.add_argument('--rgcrd_mode', type=str, default='off',
+                    choices=('off', 'output', 'relation', 'full'),
+                    help='off/B0, output/C1, ungated relation/M0, reliable relation/M1')
+parser.add_argument('--rgcrd_teacher_repo', type=str, default='',
+                    help='path to an external official SwinIR checkout')
+parser.add_argument('--rgcrd_teacher_checkpoint', type=str, default='',
+                    help='official SwinIR-M x4 DIV2K checkpoint')
+parser.add_argument('--rgcrd_teacher_amp', action='store_true',
+                    help='experimental teacher autocast; FP32 is the validated default')
+parser.add_argument('--rgcrd_teacher_microbatch', type=int, default=0,
+                    help='frozen-teacher microbatch size; 0 uses the student batch')
+parser.add_argument('--rgcrd_lambda_output', type=float, default=0.1,
+                    help='C1 output-distillation weight')
+parser.add_argument('--rgcrd_lambda_rel', type=float, default=0.25,
+                    help='M0/M1 stage-relation loss weight')
+parser.add_argument('--rgcrd_lambda_evo', type=float, default=0.125,
+                    help='M0/M1 cross-stage evolution loss weight')
+parser.add_argument('--rgcrd_local_windows', type=str, default='4+8',
+                    help='parameter-free local relation window sizes')
+parser.add_argument('--rgcrd_global_grid', type=int, default=8,
+                    help='pooled grid side for global relations')
+parser.add_argument('--rgcrd_reliability_pixel', type=float, default=0.5,
+                    help='pixel-fidelity share in the reliability error')
+parser.add_argument('--rgcrd_reliability_low', type=float, default=0.25,
+                    help='low-frequency share in the reliability error')
+parser.add_argument('--rgcrd_reliability_grad', type=float, default=0.25,
+                    help='gradient-direction share in the reliability error')
+parser.add_argument('--rgcrd_reliability_temperature', type=float, default=0.25,
+                    help='temperature of the normalized teacher-better gate')
+parser.add_argument('--rgcrd_reliability_margin', type=float, default=0.0,
+                    help='teacher advantage required before the gate exceeds 0.5')
+parser.add_argument('--rgcrd_reliability_smooth', type=int, default=3,
+                    help='odd LR-space averaging kernel for the reliability map')
+parser.add_argument('--rgcrd_grad_diag_every', type=int, default=1,
+                    help='epochs between first-batch gradient diagnostics; 0 disables')
+
 parser.add_argument('--act', type=str, default='relu',
                     help='activation function')
 parser.add_argument('--prior_update_mode', type=str, default='state',

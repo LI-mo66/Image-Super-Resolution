@@ -9,6 +9,8 @@ import torch
 import torch.nn.utils as utils
 from tqdm import tqdm
 
+from rgcrd import RGCRDCriterion, SwinIRTeacher
+
 class Trainer():
     def __init__(self, args, loader, my_model, my_loss, ckp):
         self.args = args
@@ -20,6 +22,42 @@ class Trainer():
         self.model = my_model
         self.loss = my_loss
         self.optimizer = utility.make_optimizer(args, self.model)
+
+        self.rgcrd_mode = getattr(args, 'rgcrd_mode', 'off')
+        self.rgcrd = None
+        self.rgcrd_teacher = None
+        self.rgcrd_log_columns = (
+            'epoch', 'aux', 'output', 'rel', 'evo', 'gate_mean',
+            'teacher_better', 'base_grad_norm', 'aux_grad_norm',
+            'grad_ratio', 'grad_cosine',
+        )
+        self.rgcrd_log = []
+        if self.rgcrd_mode != 'off':
+            if args.n_GPUs != 1:
+                raise ValueError('RGCRD currently requires --n_GPUs 1')
+            if args.precision != 'single':
+                raise ValueError('RGCRD student training requires --precision single')
+            if self.rgcrd_mode in ('relation', 'full') and args.model.lower() != 'lfmnrgcrd':
+                raise ValueError(
+                    'relation/full RGCRD requires --model LFMNRGCRD'
+                )
+            device = torch.device('cpu' if args.cpu else 'cuda')
+            self.rgcrd = RGCRDCriterion(args).to(device)
+            self.rgcrd_teacher = SwinIRTeacher(args, device)
+            self.rgcrd_teacher_microbatch = max(
+                0, int(args.rgcrd_teacher_microbatch)
+            )
+            self.ckp.write_log(
+                'RGCRD enabled: mode={} (training only; teacher frozen)'.format(
+                    self.rgcrd_mode
+                )
+            )
+            rg_log_path = self.ckp.get_path('rgcrd_log.pt')
+            if args.load and os.path.isfile(rg_log_path):
+                payload = torch.load(rg_log_path, map_location='cpu')
+                if tuple(payload.get('columns', ())) != self.rgcrd_log_columns:
+                    raise ValueError('incompatible rgcrd_log.pt columns')
+                self.rgcrd_log = payload.get('rows', [])
 
         if self.args.load != '':
             self.optimizer.load(ckp.dir, epoch=ckp.resume_epoch)
@@ -37,6 +75,12 @@ class Trainer():
         self.loss.start_log()
         self.model.train()
 
+        rg_sums = {
+            key: 0.0 for key in
+            ('aux', 'output', 'rel', 'evo', 'gate_mean', 'teacher_better')
+        }
+        grad_diag = None
+
         timer_data, timer_model = utility.timer(), utility.timer()
         processed_batches = 0
         for batch, (lr, hr, idx_scale) in enumerate(self.loader_train):
@@ -45,8 +89,28 @@ class Trainer():
             timer_model.tic()
 
             self.optimizer.zero_grad()
-            sr = self.model(lr, idx_scale)
-            loss = self.loss(sr, hr)
+            model_output = self.model(lr, idx_scale)
+            if self.rgcrd_mode == 'off':
+                loss = self.loss(model_output, hr)
+            else:
+                if isinstance(model_output, (tuple, list)):
+                    sr, student_features = model_output
+                else:
+                    sr, student_features = model_output, None
+                base_loss = self.loss(sr, hr)
+                teacher_sr, teacher_features = self._teacher_forward(lr)
+                auxiliary_loss, rg_stats = self.rgcrd(
+                    sr, student_features, teacher_sr, teacher_features, hr
+                )
+                diag_every = max(0, int(self.args.rgcrd_grad_diag_every))
+                if batch == 0 and diag_every and epoch % diag_every == 0:
+                    grad_diag = self._gradient_diagnostic(
+                        base_loss, auxiliary_loss
+                    )
+                loss = base_loss + auxiliary_loss
+                rg_sums['aux'] += float(auxiliary_loss.detach())
+                for key, value in rg_stats.items():
+                    rg_sums[key] += float(value)
             loss.backward()
             if self.args.gclip > 0:
                 utils.clip_grad_value_(
@@ -80,8 +144,88 @@ class Trainer():
                 break
 
         self.loss.end_log(processed_batches)
+        if self.rgcrd_mode != 'off' and processed_batches:
+            means = {
+                key: value / processed_batches for key, value in rg_sums.items()
+            }
+            self.ckp.write_log(
+                'RGCRD epoch {}: aux={aux:.6f}, output={output:.6f}, '
+                'rel={rel:.6f}, evo={evo:.6f}, gate={gate_mean:.4f}, '
+                'teacher_better={teacher_better:.4f}'.format(epoch, **means)
+            )
+            if grad_diag is not None:
+                self.ckp.write_log(
+                    'RGCRD gradient diagnostic: base_norm={base_norm:.3e}, '
+                    'aux_norm={aux_norm:.3e}, ratio={ratio:.4f}, '
+                    'cosine={cosine:.4f}'.format(**grad_diag)
+                )
+            diag_values = grad_diag or {
+                'base_norm': float('nan'), 'aux_norm': float('nan'),
+                'ratio': float('nan'), 'cosine': float('nan'),
+            }
+            self.rgcrd_log.append([
+                float(epoch), means['aux'], means['output'], means['rel'],
+                means['evo'], means['gate_mean'], means['teacher_better'],
+                diag_values['base_norm'], diag_values['aux_norm'],
+                diag_values['ratio'], diag_values['cosine'],
+            ])
+            torch.save(
+                {
+                    'columns': self.rgcrd_log_columns,
+                    'rows': self.rgcrd_log,
+                },
+                self.ckp.get_path('rgcrd_log.pt'),
+            )
         self.error_last = self.loss.log[-1, -1]
         self.optimizer.schedule()
+
+    def _gradient_diagnostic(self, base_loss, auxiliary_loss):
+        parameters = [
+            parameter for parameter in self.model.parameters()
+            if parameter.requires_grad
+        ]
+        base_grads = torch.autograd.grad(
+            base_loss, parameters, retain_graph=True, allow_unused=True
+        )
+        aux_grads = torch.autograd.grad(
+            auxiliary_loss, parameters, retain_graph=True, allow_unused=True
+        )
+        dot = base_loss.new_zeros(())
+        base_sq = base_loss.new_zeros(())
+        aux_sq = base_loss.new_zeros(())
+        for base_grad, aux_grad in zip(base_grads, aux_grads):
+            if base_grad is not None:
+                base_sq = base_sq + base_grad.detach().float().square().sum()
+            if aux_grad is not None:
+                aux_sq = aux_sq + aux_grad.detach().float().square().sum()
+            if base_grad is not None and aux_grad is not None:
+                dot = dot + (
+                    base_grad.detach().float() * aux_grad.detach().float()
+                ).sum()
+        base_norm = base_sq.sqrt()
+        aux_norm = aux_sq.sqrt()
+        denominator = (base_norm * aux_norm).clamp_min(1e-12)
+        return {
+            'base_norm': float(base_norm),
+            'aux_norm': float(aux_norm),
+            'ratio': float(aux_norm / base_norm.clamp_min(1e-12)),
+            'cosine': float(dot / denominator),
+        }
+
+    def _teacher_forward(self, lr):
+        microbatch = self.rgcrd_teacher_microbatch
+        if microbatch <= 0 or lr.shape[0] <= microbatch:
+            return self.rgcrd_teacher(lr)
+        outputs = []
+        features = {'stage4': [], 'stage8': []}
+        for chunk in lr.split(microbatch, dim=0):
+            output, chunk_features = self.rgcrd_teacher(chunk)
+            outputs.append(output)
+            for key in features:
+                features[key].append(chunk_features[key])
+        return torch.cat(outputs, dim=0), {
+            key: torch.cat(value, dim=0) for key, value in features.items()
+        }
 
     def test(self):
         torch.set_grad_enabled(False)

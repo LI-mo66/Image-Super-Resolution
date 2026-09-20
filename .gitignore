@@ -5,6 +5,8 @@
 /.npm-cache/
 /repro/docx_gen/
 /repro/catanet_ref/
+/repro/swinir_ref/
+/repro/teacher_weights/
 /LFMN/.git_upstream_backup/
 
 # Generated Python and model-inspection files
