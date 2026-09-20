@@ -30,7 +30,7 @@ if (( MAX_TRAIN_BATCHES < 0 || EPOCHS < 1 )); then
   echo "MaxTrainBatches must be nonnegative and Epochs must be at least 1." >&2
   exit 2
 fi
-if [[ "$MODEL" != "LFMN" && "$MODEL" != "LFMNFeedback" && "$MODEL" != "LFMNFreq" && "$MODEL" != "LFMNOverlap" && "$MODEL" != "LFMNRDSM" && "$MODEL" != "LFMNRDSMDirect" && "$MODEL" != "LFMNBidirectional" && "$MODEL" != "LFMNPriorUpdate" && "$MODEL" != "LFMNPriorProxy" && "$MODEL" != "LFMNStageDiff" && "$MODEL" != "LFMNCrossWindow" && "$MODEL" != "LFMNCrossAxis" ]]; then
+if [[ "$MODEL" != "LFMN" && "$MODEL" != "LFMNFeedback" && "$MODEL" != "LFMNFreq" && "$MODEL" != "LFMNOverlap" && "$MODEL" != "LFMNRDSM" && "$MODEL" != "LFMNRDSMDirect" && "$MODEL" != "LFMNBidirectional" && "$MODEL" != "LFMNPriorUpdate" && "$MODEL" != "LFMNPriorProxy" && "$MODEL" != "LFMNStageDiff" && "$MODEL" != "LFMNCrossWindow" && "$MODEL" != "LFMNCrossAxis" && "$MODEL" != "LFMNDetailHead" ]]; then
   echo "Unsupported model: $MODEL" >&2
   exit 2
 fi
