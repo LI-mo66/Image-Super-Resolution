@@ -97,6 +97,9 @@ class Trainer():
         self.model.eval()
 
         timer_test = utility.timer()
+        per_image_metrics = (
+            [] if getattr(self.args, 'save_per_image_metrics', False) else None
+        )
         if self.args.save_results: self.ckp.begin_background()
         for idx_data, d in enumerate(self.loader_test):
             for idx_scale, scale in enumerate(self.scale):
@@ -108,12 +111,22 @@ class Trainer():
                     sr = utility.quantize(sr, self.args.rgb_range)
 
                     save_list = [sr]
-                    self.ckp.log[-1, idx_data, idx_scale] += utility.calc_psnr(
+                    image_psnr = utility.calc_psnr(
                         sr, hr, scale, self.args.rgb_range, dataset=d
                     )
-                    self.ckp.log_ssim[-1, idx_data, idx_scale] += utility.calc_ssim(
+                    image_ssim = utility.calc_ssim(
                         sr, hr, scale, self.args.rgb_range, dataset=d
                     )
+                    self.ckp.log[-1, idx_data, idx_scale] += image_psnr
+                    self.ckp.log_ssim[-1, idx_data, idx_scale] += image_ssim
+                    if per_image_metrics is not None:
+                        per_image_metrics.append({
+                            'dataset': d.dataset.name,
+                            'scale': int(scale),
+                            'filename': filename[0],
+                            'psnr': float(image_psnr),
+                            'ssim': float(image_ssim),
+                        })
                     if self.args.save_gt:
                         save_list.extend([lr, hr])
 
@@ -136,6 +149,14 @@ class Trainer():
                         best_ssim[1][idx_data, idx_scale] + 1
                     )
                 )
+
+        if per_image_metrics is not None:
+            metrics_dir = self.ckp.get_path('per_image_metrics')
+            os.makedirs(metrics_dir, exist_ok=True)
+            torch.save(
+                per_image_metrics,
+                os.path.join(metrics_dir, 'epoch_{:04d}.pt'.format(epoch)),
+            )
 
         self.ckp.write_log('Forward: {:.2f}s\n'.format(timer_test.toc()))
         self.ckp.write_log('Saving...')

@@ -177,6 +177,8 @@ parser.add_argument('--save_results', action='store_true',
                     help='save output results')
 parser.add_argument('--save_gt', action='store_true',
                     help='save low-resolution and high-resolution images together')
+parser.add_argument('--save_per_image_metrics', action='store_true',
+                    help='save full-precision per-image PSNR/SSIM for paired analysis')
 
 args = parser.parse_args()
 template.set_template(args)
