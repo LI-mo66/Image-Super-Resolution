@@ -17,8 +17,8 @@ def config(path):
 
 
 def stats(run):
-    psnr = load_curve(run / 'psnr_log.pt').flatten().tolist()
-    ssim = load_curve(run / 'ssim_log.pt').flatten().tolist()
+    psnr = load_curve(run, 'psnr_log.pt').flatten().tolist()
+    ssim = load_curve(run, 'ssim_log.pt').flatten().tolist()
     return psnr, ssim
 
 
