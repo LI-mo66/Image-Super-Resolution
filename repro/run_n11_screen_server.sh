@@ -110,6 +110,5 @@ EOF
 ) 2>&1 | tee "$OUTPUT/console.log"
 "$PYTHON_BIN" "$SCRIPT_DIR/summarize_n11.py" "$OUTPUT" \
   --baseline-reference "$B0_REFERENCE" \
-  --data-root "$DATA_ROOT" \
   | tee "$OUTPUT/summary.txt"
 printf '\nN11/SRPRv1 output: %s\n' "$OUTPUT"
