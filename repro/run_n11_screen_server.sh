@@ -19,6 +19,35 @@ if [[ ! -f "$B0_REFERENCE/config.txt" ]]; then
   printf 'N9 from-scratch B0 config missing: %s\n' "$B0_REFERENCE/config.txt" >&2
   exit 2
 fi
+for required in \
+  "$B0_REFERENCE/psnr_log.pt" \
+  "$B0_REFERENCE/ssim_log.pt" \
+  "$B0_REFERENCE/model/model_20.pt" \
+  "$B0_REFERENCE/per_image_metrics/epoch_0020.pt"; do
+  if [[ ! -f "$required" ]]; then
+    printf 'Required N9 B0 artifact missing: %s\n' "$required" >&2
+    exit 2
+  fi
+done
+for expected in \
+  'model: LFMN' \
+  'pre_train: ' \
+  'data_range: 1-800/801-900' \
+  'scale: [4]' \
+  'patch_size: 256' \
+  'batch_size: 4' \
+  'seed: 1' \
+  'epochs: 20' \
+  'lr: 0.0002' \
+  'scheduler: cosine' \
+  'scheduler_t_max: 150' \
+  'eta_min: 1e-06' \
+  'loss: 1*L1'; do
+  if ! grep -Fxq "$expected" "$B0_REFERENCE/config.txt"; then
+    printf 'N9 B0 protocol mismatch or missing field: %s\n' "$expected" >&2
+    exit 2
+  fi
+done
 if [[ -e "$OUTPUT" ]]; then
   printf 'Output already exists: %s\n' "$OUTPUT" >&2
   exit 2
