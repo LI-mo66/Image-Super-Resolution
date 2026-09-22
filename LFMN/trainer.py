@@ -1,5 +1,6 @@
 import os
 import math
+import json
 from decimal import Decimal
 
 
@@ -77,6 +78,21 @@ class Trainer():
             self.optimizer.load(ckp.dir, epoch=ckp.resume_epoch)
 
         self.error_last = 1e8
+        self.n12_diagnostics = []
+        self.n12_diagnostic_columns = (
+            'epoch', 'phase', 'batch', 'stage', 'residual_l2',
+            'backprojection_l2', 'observation_l2', 'state_l2',
+            'state_delta_l2', 'feature_delta_l2', 'q_delta_l2',
+            'gate_mean', 'gate_std', 'gate_saturation',
+            'data_consistency_ratio',
+        )
+        if args.load:
+            diag_path = self.ckp.get_path('mechanism_diagnostics.pt')
+            if os.path.isfile(diag_path):
+                payload = torch.load(diag_path, map_location='cpu')
+                if tuple(payload.get('columns', ())) != self.n12_diagnostic_columns:
+                    raise ValueError('incompatible mechanism_diagnostics.pt columns')
+                self.n12_diagnostics = payload.get('rows', [])
 
     def train(self):
         self.loss.step()
@@ -104,6 +120,7 @@ class Trainer():
 
             self.optimizer.zero_grad()
             model_output = self.model(lr, idx_scale)
+            self._capture_n12_diagnostics(epoch, 'train', batch)
             if self.rgcrd_mode == 'off':
                 loss = self.loss(model_output, hr)
             else:
@@ -266,6 +283,7 @@ class Trainer():
                 for lr, hr, filename in tqdm(d, ncols=80):
                     lr, hr = self.prepare(lr, hr)
                     sr = self.model(lr, idx_scale)
+                    self._capture_n12_diagnostics(epoch, 'eval', idx_data)
                     sr = utility.quantize(sr, self.args.rgb_range)
 
                     save_list = [sr]
@@ -324,6 +342,7 @@ class Trainer():
 
         if not self.args.test_only:
             self.ckp.save(self, epoch)
+            self._save_n12_diagnostics()
         else:
             # Test-only runs still need machine-readable, full-precision metrics.
             # Without these files downstream comparisons can only recover the
@@ -340,7 +359,33 @@ class Trainer():
 
         torch.set_grad_enabled(True)
 
-    def prepare(self, *args):
+    def _capture_n12_diagnostics(self, epoch, phase, batch):
+        source = getattr(self.model, 'diagnostics_snapshot', None)
+        if source is None:
+            source = getattr(getattr(self.model, 'model', None), 'diagnostics_snapshot', None)
+        if source is None:
+            return
+        diagnostics = source()
+        if not diagnostics:
+            return
+        stages = len(next(iter(diagnostics.values())))
+        for stage in range(stages):
+            row = [float(epoch), phase, int(batch), int(stage)]
+            row.extend(float(diagnostics[key][stage]) for key in self.n12_diagnostic_columns[4:])
+            self.n12_diagnostics.append(row)
+
+    def _save_n12_diagnostics(self):
+        if not self.n12_diagnostics:
+            return
+        payload = {
+            'columns': self.n12_diagnostic_columns,
+            'rows': self.n12_diagnostics,
+        }
+        torch.save(payload, self.ckp.get_path('mechanism_diagnostics.pt'))
+        with open(self.ckp.get_path('mechanism_diagnostics.jsonl'), 'w', encoding='utf-8') as handle:
+            for row in self.n12_diagnostics:
+                handle.write(json.dumps(dict(zip(self.n12_diagnostic_columns, row))) + '\\n')
+
         device = torch.device('cpu' if self.args.cpu else 'cuda')
         def _prepare(tensor):
             if self.args.precision == 'half': tensor = tensor.half()

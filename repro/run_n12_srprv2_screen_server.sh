@@ -16,7 +16,10 @@ for expected in 'model: LFMN' 'pre_train: ' 'data_range: 1-800/801-900' 'scale: 
 done
 [[ ! -e "$OUTPUT" ]] || { echo "Output exists: $OUTPUT" >&2; exit 2; }
 [[ -f "$DATA_ROOT/DIV2K/DIV2K_train_HR/0001.png" ]] || { echo "Missing DATA_ROOT: $DATA_ROOT" >&2; exit 2; }
-"$PYTHON_BIN" "$SCRIPT_DIR/check_n12_srprv2.py"
+mkdir -p "$OUTPUT"
+"$PYTHON_BIN" "$SCRIPT_DIR/check_div2k_x4.py" --root "$DATA_ROOT/DIV2K"
+"$PYTHON_BIN" "$SCRIPT_DIR/check_n12_srprv2.py" | tee "$OUTPUT/n12_structure_check.json"
+"$PYTHON_BIN" "$SCRIPT_DIR/check_n12_real_batch.py" --root "$DATA_ROOT/DIV2K" | tee "$OUTPUT/n12_real_batch_check.json"
 mkdir -p "$OUTPUT"
 "$PYTHON_BIN" "$SCRIPT_DIR/profile_n12_srprv2.py" --size 64 --warmup "${PROFILE_WARMUP:-10}" --repeats "${PROFILE_REPEATS:-50}" --output "$OUTPUT/profile_metrics.json" | tee "$OUTPUT/profile_console.log"
 cat > "$OUTPUT/run_manifest.json" <<EOF

@@ -115,11 +115,17 @@ class Net(BaselineNet):
             raise ValueError('SRPRv2 requires scale=4')
         self.observation = BicubicAdjoint(scale)
         self.state_channels = n_feats
-        self.state_init = nn.Conv2d(3, n_feats, 1)
         self.proximal = nn.ModuleList([
             LRProximalWriteback(n_feats, hidden=16) for _ in range(n_stage)
         ])
         self.last_diagnostics = {}
+
+    def diagnostics_snapshot(self):
+        """Return the last per-stage diagnostics detached on CPU."""
+        return {
+            key: value.detach().float().cpu().clone()
+            for key, value in self.last_diagnostics.items()
+        }
 
     def _final_decode(self, x, x0, feat, q):
         if self.scale == 4:
@@ -128,7 +134,7 @@ class Net(BaselineNet):
         else:
             u = self.lrelu(self.pixel_shuffle(self.upconv(x0 + feat)))
         base = F.interpolate(x, scale_factor=self.scale, mode='bilinear', align_corners=False)
-        return self.last_conv(u) + base + F.interpolate(q, scale_factor=4, mode='bilinear', align_corners=False)
+        return self.last_conv(u) + base + F.interpolate(q, scale_factor=self.scale, mode='bilinear', align_corners=False)
 
     def _observation_estimate(self, x, q):
         return F.interpolate(x + q, scale_factor=4, mode='bilinear', align_corners=False)
@@ -183,5 +189,5 @@ class Net(BaselineNet):
 
 
 def make_model(args):
-    scale = args.scale[0] if hasattr(args, 'scale') and args.scale else 2
+    scale = args.scale[0] if hasattr(args, 'scale') and args.scale else 4
     return Net(scale=scale)
