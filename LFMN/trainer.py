@@ -384,8 +384,9 @@ class Trainer():
         torch.save(payload, self.ckp.get_path('mechanism_diagnostics.pt'))
         with open(self.ckp.get_path('mechanism_diagnostics.jsonl'), 'w', encoding='utf-8') as handle:
             for row in self.n12_diagnostics:
-                handle.write(json.dumps(dict(zip(self.n12_diagnostic_columns, row))) + '\\n')
+                handle.write(json.dumps(dict(zip(self.n12_diagnostic_columns, row))) + '\n')
 
+    def prepare(self, *args):
         device = torch.device('cpu' if self.args.cpu else 'cuda')
         def _prepare(tensor):
             if self.args.precision == 'half': tensor = tensor.half()

@@ -118,6 +118,9 @@ class Net(BaselineNet):
         self.proximal = nn.ModuleList([
             LRProximalWriteback(n_feats, hidden=16) for _ in range(n_stage)
         ])
+        # A shared, cheap HR probe makes each observation residual depend on
+        # the current backbone feature before the next stage is run.
+        self.stage_probe = nn.Conv2d(n_feats, 3 * scale * scale, 1)
         self.last_diagnostics = {}
 
     def diagnostics_snapshot(self):
@@ -136,8 +139,9 @@ class Net(BaselineNet):
         base = F.interpolate(x, scale_factor=self.scale, mode='bilinear', align_corners=False)
         return self.last_conv(u) + base + F.interpolate(q, scale_factor=self.scale, mode='bilinear', align_corners=False)
 
-    def _observation_estimate(self, x, q):
-        return F.interpolate(x + q, scale_factor=4, mode='bilinear', align_corners=False)
+    def _observation_estimate(self, x, feat, q):
+        base = F.interpolate(x + q, scale_factor=4, mode='bilinear', align_corners=False)
+        return base + F.pixel_shuffle(self.stage_probe(feat), 4)
 
     def forward(self, x):
         x0 = self.first_conv(x)
@@ -151,7 +155,6 @@ class Net(BaselineNet):
             'q_delta_l2', 'gate_mean', 'gate_std', 'gate_saturation',
             'data_consistency_ratio',
         )}
-        previous_residual = None
         for i, prox in enumerate(self.proximal):
             prev = feat
             beta, gamma = self.sfmls[i](fs)
@@ -160,7 +163,7 @@ class Net(BaselineNet):
             t = g_attn(fm)
             s = l_attn(t, self.patch_size[i])
             feat = self.esas[i](prev + self.mid_convs[i](s))
-            x_hat = self._observation_estimate(x, q)
+            x_hat = self._observation_estimate(x, feat, q)
             residual = x - self.observation.down(x_hat)
             back = self.observation.adjoint(residual, x_hat.shape[-2:])
             observation = F.interpolate(back, size=x.shape[-2:], mode='bilinear', align_corners=False)
@@ -169,7 +172,7 @@ class Net(BaselineNet):
             state_delta = state - state_before
             feat = feat + delta_feat
             q = q + delta_q
-            next_x = self._observation_estimate(x, q)
+            next_x = self._observation_estimate(x, feat, q)
             next_residual = x - self.observation.down(next_x)
             diagnostics['residual_l2'].append(residual.detach().float().square().mean().sqrt())
             diagnostics['backprojection_l2'].append(back.detach().float().square().mean().sqrt())
@@ -183,7 +186,6 @@ class Net(BaselineNet):
             diagnostics['gate_saturation'].append(((gate < .01) | (gate > .99)).float().mean())
             ratio = next_residual.detach().float().square().mean().sqrt() / residual.detach().float().square().mean().sqrt().clamp_min(1e-8)
             diagnostics['data_consistency_ratio'].append(ratio)
-            previous_residual = residual
         self.last_diagnostics = {key: torch.stack(value) for key, value in diagnostics.items()}
         return self._final_decode(x, x0, feat, q)
 

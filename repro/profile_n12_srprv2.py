@@ -18,17 +18,19 @@ def profile(model, sample, warmup, repeats, device):
         out=output[0] if isinstance(output, tuple) else output
         b,c,h,w=out.shape
         macs += b*c*h*w*(layer.in_channels//layer.groups)*layer.kernel_size[0]*layer.kernel_size[1]
-    for m in model.modules():
-        if isinstance(m, torch.nn.Conv2d): hooks.append(m.register_forward_hook(hook))
     with torch.inference_mode():
         for _ in range(warmup): model(sample)
         sync(device)
+        for m in model.modules():
+            if isinstance(m, torch.nn.Conv2d): hooks.append(m.register_forward_hook(hook))
+        model(sample)
+        sync(device)
+        for h in hooks: h.remove()
         if device.type=='cuda': torch.cuda.reset_peak_memory_stats(device)
         times=[]
         for _ in range(repeats):
             sync(device); t=time.perf_counter(); model(sample); sync(device)
             times.append((time.perf_counter()-t)*1000)
-    for h in hooks: h.remove()
     peak={'allocated_mib':None,'reserved_mib':None}
     if device.type=='cuda': peak={'allocated_mib':torch.cuda.max_memory_allocated(device)/2**20,'reserved_mib':torch.cuda.max_memory_reserved(device)/2**20}
     ordered=sorted(times)

@@ -7,7 +7,7 @@
 候选名称：SRPRv2 (State-Routed Proximal Reconstruction v2)
 分支：codex/n12-srprv2
 共同基线：feature/prior-update-screen / b198de7
-状态：IMPLEMENTED，待本地完整验证
+状态：VERIFIED，本地检查完成；待服务器20 epoch短筛
 ```
 
 ## 核心假设
@@ -21,7 +21,7 @@ N11 采用 HR 48-channel state 和 average-pool surrogate，且 proximal feature
 ## 公式与形状
 
 ```text
-xhat_i = x_base + U(q_i)
+xhat_i = bilinear(y + q_i) + PixelShuffle4(stage_probe(feat_i))
 r_i = y - D(xhat_i)
 b_i = D^T r_i
 a_i = A(b_i)
@@ -33,6 +33,7 @@ q_(i+1) = q_i + S_i(h_(i+1),a_i)
 ```
 
 `y/r/a`: `B×3×h×w`; `feat/h`: `B×48×h×w`; `b`: `B×3×4h×4w`; `xhat`: `B×3×4h×4w`; `q`: `B×3×h×w`。
+`stage_probe` 是跨阶段共享的轻量 1×1 投影，使每阶段观测残差依赖当前主干特征；最终输出仍由原 LFMN decoder 读取回写后的第8阶段特征并叠加 `bilinear(q)`。观测估计是低成本代理，不等同于最终 decoder 输出。固定 bicubic analysis 与 DIV2K 实际 LR 图像在本地 0001 的 64×64 patch 上平均绝对差为 0.001113（输入归一化到0–1）；伴随精确性只相对于所实现的 analysis 算子成立，不表示与数据生成算子逐像素完全一致。
 
 ## 首轮协议
 
@@ -40,7 +41,7 @@ N12 从零训练 20 epoch；B0 复用 N9 已完成从零 B0：`/root/autodl-tmp/
 
 ## 验证
 
-必须通过 bicubic D/D^T float64 内积、尺寸、有限性、proximal/writeback梯度、输入扰动因果、真实batch、保存重载和效率 profile。每轮记录 PSNR/SSIM、逐图指标、参数、MAC/FLOPs、显存/延迟和逐阶段 residual/state/gate/writeback 诊断。未测字段不得填写为结果。
+本地已通过 bicubic D/D^T float64 内积（测试误差最大 6.66e-15）、尺寸、有限性、proximal/writeback梯度、阶段特征到观测残差梯度、基线权重迁移后输出逐元素一致、真实 DIV2K 单样本前后向、内存保存重载及公共 Trainer 单图训练/评测/机制 JSONL 保存。单图评测 26.186 dB / 0.7147 仅为链路烟雾测试，不能作为性能结论。本地 RTX 4060 Laptop、PyTorch 2.9.1+cu128、FP32、LR 64×64、warmup 10/repeats 50 的同一 profiler：B0/N12 参数 759627/841563，Conv2d MAC 2.833G/3.303G（仅卷积，不含 bicubic、注意力与插值），median 38.99/49.70 ms，peak allocated 214.74/221.49 MiB。正式效率须在服务器复测。
 
 ## 服务器入口
 

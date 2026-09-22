@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """N12 real DIV2K one-pair forward/backward/save-reload smoke check."""
 import argparse
+import io
 import json
 import sys
-import tempfile
 from pathlib import Path
 
 import numpy as np
@@ -43,6 +43,8 @@ def main():
     torch.manual_seed(1)
     lr, hr = load_pair(args.root.resolve(), args.image_id)
     model = Net(scale=4).train()
+    with torch.no_grad():
+        analysis_error = (model.observation.down(hr) - lr).abs().mean()
     optimizer = torch.optim.Adam(model.parameters(), lr=2e-4)
     optimizer.zero_grad(set_to_none=True)
     sr = model(lr)
@@ -57,14 +59,14 @@ def main():
     model.eval()
     with torch.no_grad():
         reference = model(lr)
-    with tempfile.TemporaryDirectory() as directory:
-        path = Path(directory) / 'model.pt'
-        torch.save(model.state_dict(), path)
-        reloaded = Net(scale=4).eval()
-        reloaded.load_state_dict(torch.load(path, map_location='cpu', weights_only=True), strict=True)
-        with torch.no_grad():
-            restored = reloaded(lr)
-        assert torch.equal(reference, restored), 'reload output mismatch'
+    checkpoint = io.BytesIO()
+    torch.save(model.state_dict(), checkpoint)
+    checkpoint.seek(0)
+    reloaded = Net(scale=4).eval()
+    reloaded.load_state_dict(torch.load(checkpoint, map_location='cpu', weights_only=True), strict=True)
+    with torch.no_grad():
+        restored = reloaded(lr)
+    assert torch.equal(reference, restored), 'reload output mismatch'
 
     print(json.dumps({
         'candidate': 'N12/SRPRv2',
@@ -73,6 +75,7 @@ def main():
         'hr_shape': list(hr.shape),
         'sr_shape': list(sr.shape),
         'loss': float(loss.detach()),
+        'bicubic_analysis_pair_mae': float(analysis_error),
         'finite_backward': True,
         'diagnostic_stages': len(next(iter(diagnostics.values()))),
         'save_reload': 'passed',

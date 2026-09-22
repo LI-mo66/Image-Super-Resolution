@@ -5,6 +5,7 @@ PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 RUN_NAME="${1:-n12/srprv2_20e_seed1_$(date +%Y%m%d_%H%M%S)}"
 DATA_ROOT="${DATA_ROOT:-$PROJECT_ROOT/datasets}"
 OUTPUT="$PROJECT_ROOT/experiment/all_runs/$RUN_NAME"
+SOURCE_COMMIT="$(git -C "$PROJECT_ROOT" rev-parse HEAD)"
 PYTHON_BIN="${PYTHON_BIN:-python}"
 B0_REFERENCE="${B0_REFERENCE:-}"
 if [[ -z "$B0_REFERENCE" ]]; then echo 'B0_REFERENCE is required' >&2; exit 2; fi
@@ -25,6 +26,7 @@ mkdir -p "$OUTPUT"
 cat > "$OUTPUT/run_manifest.json" <<EOF
 {
   "candidate": "N12/SRPRv2",
+  "source_commit": "$SOURCE_COMMIT",
   "comparison_mode": "from_scratch_paired_with_existing_n9_b0",
   "baseline_reference": "$B0_REFERENCE",
   "epochs": 20,
