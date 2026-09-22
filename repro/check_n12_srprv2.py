@@ -7,6 +7,7 @@ import sys
 from pathlib import Path
 
 import torch
+from torch.utils.data import DataLoader
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / 'LFMN'))
@@ -48,6 +49,15 @@ def check_adjoint(height, width):
 
 def main():
     torch.manual_seed(1)
+    reference_generator = torch.Generator().manual_seed(1)
+    replay_generator = torch.Generator().manual_seed(1)
+    for generator, workers in ((reference_generator, 2), (replay_generator, 0)):
+        loader = DataLoader(range(41), batch_size=4, shuffle=True,
+                            num_workers=workers, generator=generator)
+        for _ in range(3):
+            for _ in loader:
+                pass
+    assert torch.equal(reference_generator.get_state(), replay_generator.get_state())
     model = Net(scale=4).eval()
     baseline = BaselineNet(scale=4).eval()
     missing, unexpected = model.load_state_dict(baseline.state_dict(), strict=False)
@@ -130,6 +140,7 @@ def main():
         'causal_input_check': 'passed',
         'stage_feature_to_residual_check': 'passed',
         'state_to_output_gradient_check': 'passed',
+        'data_stream_replay_check': 'passed',
         'save_reload_check': 'passed',
         'diagnostic_keys': sorted(DIAGNOSTIC_KEYS),
         'source_commit': subprocess.check_output(

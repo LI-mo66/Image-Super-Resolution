@@ -28,6 +28,20 @@ class Data:
             # initialization, which consumes a different amount of RNG state.
             train_generator = torch.Generator()
             train_generator.manual_seed(args.seed)
+            resume_data_epochs = getattr(args, 'n12_resume_data_epochs', 0)
+            if resume_data_epochs:
+                if args.model.lower() != 'lfmnsrprv2' or not args.load or args.resume != resume_data_epochs:
+                    raise ValueError('N12 data-stream replay requires matching --load and --resume')
+                # Replay only sampler/worker-seed RNG consumption. No images
+                # are decoded, and the real loader receives the advanced state.
+                replay_loader = dataloader.DataLoader(
+                    range(len(MyConcatDataset(datasets))),
+                    batch_size=args.batch_size, shuffle=True,
+                    num_workers=0, generator=train_generator,
+                )
+                for _ in range(resume_data_epochs):
+                    for _ in replay_loader:
+                        pass
             self.loader_train = dataloader.DataLoader(
                 MyConcatDataset(datasets),
                 batch_size=args.batch_size,

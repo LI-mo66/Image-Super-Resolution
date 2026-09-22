@@ -55,3 +55,7 @@ bash repro/run_n12_srprv2_screen_server.sh n12/srprv2_20e_seed1
 ## 闸门
 
 20 epoch 末 5 轮相对 B0 稳定为正、逐图 CI 下界为正、至少 60% 图像正收益、SSIM 不退化、机制诊断非零且效率预算合格，才允许 40 epoch；40 epoch通过后才设计 T_max=1000 的正式训练。否则 NO-GO，不用长训赌反转。
+
+## 20→40 epoch 续训入口
+
+`repro/run_n12_srprv2_40e_server.py` 自动寻找 N12 的 `srprv2/model/model_20.pt` 和已有 B0 的 `model/model_40.pt`。B0 40 必须与登记的 N9 B0 在前20轮 PSNR/SSIM 逐点一致（绝对误差≤1e−6），且训练配置与逐图 epoch40 文件齐全；不匹配即停止，不重训 B0。N12 原目录必须有第20轮模型、优化器、调度器、曲线、逐图、机制诊断和 profile。续训固定原 Cosine `T_max=150`，载入第20轮模型/优化器/调度器，并用轻量索引 DataLoader 推进训练随机生成器20轮，使第21轮数据顺序承接已完成的20轮；公共默认训练路径不受影响。本地已在两个 worker 与零 worker 的等长 DataLoader 上核对随机状态，并用真实 DIV2K 单图完成1→2轮续训烟雾测试。若已有 B0 40 不在默认搜索根目录，可显式传 `--b0-40`；先用 `--check-only` 核验，不开始训练。正式 B0 40 的路径、权重哈希及结果仍待服务器发现与记录。

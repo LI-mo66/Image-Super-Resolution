@@ -204,6 +204,8 @@ parser.add_argument('--experiment_root', type=str, default='../experiment/all_ru
                     help='root directory for all experiment outputs')
 parser.add_argument('--resume', type=int, default=0,
                     help='resume from specific checkpoint')
+parser.add_argument('--n12_resume_data_epochs', type=int, default=0,
+                    help='N12 only: advance the training DataLoader RNG before resumed epochs')
 parser.add_argument('--save_models', action='store_true',
                     help='save all intermediate models')
 parser.add_argument('--print_every', type=int, default=100,
