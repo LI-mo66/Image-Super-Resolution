@@ -29,9 +29,18 @@ class Data:
             train_generator = torch.Generator()
             train_generator.manual_seed(args.seed)
             resume_data_epochs = getattr(args, 'n12_resume_data_epochs', 0)
+            baseline_replay = getattr(args, 'resume_data_epochs', 0)
+            if resume_data_epochs and baseline_replay:
+                raise ValueError('Use only one data-stream replay option')
+            if baseline_replay:
+                if args.model.lower() != 'lfmn':
+                    raise ValueError('Baseline data-stream replay requires LFMN')
+                resume_data_epochs = baseline_replay
             if resume_data_epochs:
-                if args.model.lower() != 'lfmnsrprv2' or not args.load or args.resume != resume_data_epochs:
-                    raise ValueError('N12 data-stream replay requires matching --load and --resume')
+                if not baseline_replay and args.model.lower() != 'lfmnsrprv2':
+                    raise ValueError('N12 data-stream replay requires LFMNSRPRV2')
+                if not args.load or args.resume != resume_data_epochs:
+                    raise ValueError('Data-stream replay requires matching --load and --resume')
                 # Replay only sampler/worker-seed RNG consumption. No images
                 # are decoded, and the real loader receives the advanced state.
                 replay_loader = dataloader.DataLoader(

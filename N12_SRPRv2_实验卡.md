@@ -61,3 +61,7 @@ bash repro/run_n12_srprv2_screen_server.sh n12/srprv2_20e_seed1
 `repro/run_n12_srprv2_40e_server.py` 自动寻找 N12 的 `srprv2/model/model_20.pt` 和已有 B0 的 `model/model_40.pt`。B0 40 必须与登记的 N9 B0 在前20轮 PSNR/SSIM 逐点一致（绝对误差≤1e−6），且训练配置与逐图 epoch40 文件齐全；不匹配即停止，不重训 B0。N12 原目录必须有第20轮模型、优化器、调度器、曲线、逐图、机制诊断和 profile。续训固定原 Cosine `T_max=150`，载入第20轮模型/优化器/调度器，并用轻量索引 DataLoader 推进训练随机生成器20轮，使第21轮数据顺序承接已完成的20轮；公共默认训练路径不受影响。本地已在两个 worker 与零 worker 的等长 DataLoader 上核对随机状态，并用真实 DIV2K 单图完成1→2轮续训烟雾测试。若已有 B0 40 不在默认搜索根目录，可显式传 `--b0-40`；先用 `--check-only` 核验，不开始训练。正式 B0 40 的路径、权重哈希及结果仍待服务器发现与记录。
 
 首次服务器 `--check-only` 在默认两个实验目录下未发现匹配的 B0 40，安全停止且没有启动训练。新增 `--inspect-b0` 输出搜索到的每个 `model_40.pt` 目录及配置、逐图文件或前20轮曲线不匹配原因；可配合 `--search-root /root/autodl-tmp` 扩大只读搜索。当前不把历史 PriorProxy 的不同 B0 轨迹误用为 N12 对照。
+
+全盘服务器检查找到的 PriorProxy 40 轮目录缺少本次逐图指标配置，RGCRD 40 轮 B0 使用 MultiStep 而本次使用 Cosine，因此没有可复用的同协议 B0 40。下一步仅从上述 N9 B0 第20轮 checkpoint 续训剩余20轮。`repro/run_n12_b0_40e_server.py --check-only` 先核验来源、完整曲线、逐图文件及 optimizer/scheduler/loss；正式运行复制原目录到独立 `experiment/all_runs/n12/b0_40e_seed1_from_n9`，核对 model_20 哈希，按原 Cosine T_max=150 继续到40轮。新增默认关闭、只允许 LFMN 的 `--resume_data_epochs 20` 推进采样器与 worker 种子流；不修改 N9 原始20轮目录。完成后原 N12 续训入口才能复用这个同轨迹 B0 40。服务器40轮结果仍待验证。
+
+本地验证：使用真实 DIV2K 单图、x4、LFMN、一个训练 batch 完成第1轮保存和第1→2轮续训，日志明确从第2轮开始，`model_2.pt`、逐图 epoch2、两轮 PSNR 曲线和 `scheduler.last_epoch=2` 均存在；这个缩小数据协议仅为功能烟雾测试，不是研究性能结果。错误协议的烟雾目录被 B0 正式入口拒绝（`data_range` 不符）。
