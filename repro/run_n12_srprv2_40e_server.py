@@ -115,23 +115,39 @@ def select_b0(args):
     else:
         candidates = list(find_runs(args.search_root, 40))
     matches = []
+    inspected = []
     for run in sorted(set(candidates)):
         try:
             validate_config(run, 'LFMN')
             require(run, ('model/model_40.pt', 'psnr_log.pt', 'ssim_log.pt',
                           'per_image_metrics/epoch_0040.pt'))
             psnr, ssim = curve(run, 'psnr_log.pt'), curve(run, 'ssim_log.pt')
-            if len(psnr) >= 40 and len(ssim) >= 40 and \
-                    np.allclose(psnr[:20], psnr20, rtol=0, atol=1e-6) and \
+            if len(psnr) < 40 or len(ssim) < 40:
+                inspected.append((run, 'curve shorter than 40 epochs'))
+            elif np.allclose(psnr[:20], psnr20, rtol=0, atol=1e-6) and \
                     np.allclose(ssim[:20], ssim20, rtol=0, atol=1e-6):
                 matches.append(run)
-        except (FileNotFoundError, ValueError, KeyError):
-            if args.b0_40:
+                inspected.append((run, 'MATCH'))
+            else:
+                psnr_gap = float(np.max(np.abs(psnr[:20] - psnr20)))
+                ssim_gap = float(np.max(np.abs(ssim[:20] - ssim20)))
+                inspected.append((run, f'first-20 curve differs: max PSNR {psnr_gap:.6f}, '
+                                       f'max SSIM {ssim_gap:.6f}'))
+        except (FileNotFoundError, ValueError, KeyError) as error:
+            inspected.append((run, f'{type(error).__name__}: {error}'))
+            if args.b0_40 and not args.inspect_b0:
                 raise
+    if args.inspect_b0:
+        if not inspected:
+            print('No model_40.pt found in the search roots.', flush=True)
+        for run, reason in inspected:
+            print(f'{run}: {reason}', flush=True)
+        return None
     if len(matches) != 1:
         raise ValueError(
             f'Expected one B0-40 with the exact N9 B0 first-20 curve; found {matches}. '
-            'Pass --b0-40 if several copies exist. A different B0 curve cannot be reused.'
+            'Run --inspect-b0 (optionally with --search-root /root/autodl-tmp) '
+            'to see candidate paths and rejection reasons.'
         )
     return matches[0]
 
@@ -178,6 +194,8 @@ def main():
     parser.add_argument('--gpu', default='0')
     parser.add_argument('--check-only', action='store_true',
                         help='validate and print both runs without starting training')
+    parser.add_argument('--inspect-b0', action='store_true',
+                        help='list B0-40 candidates and why each does or does not match')
     args = parser.parse_args()
     if args.search_root is None:
         args.search_root = [
@@ -186,6 +204,8 @@ def main():
         ]
     n12 = select_n12(args)
     b0 = select_b0(args)
+    if args.inspect_b0:
+        return
     if not (args.data_root / 'DIV2K/DIV2K_train_HR/0001.png').is_file():
         raise FileNotFoundError(args.data_root)
     print(f'Validated N12-20: {n12}\nValidated existing B0-40: {b0}', flush=True)
