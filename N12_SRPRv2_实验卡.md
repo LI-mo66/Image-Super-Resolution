@@ -7,7 +7,7 @@
 候选名称：SRPRv2 (State-Routed Proximal Reconstruction v2)
 分支：codex/n12-srprv2
 共同基线：feature/prior-update-screen / b198de7
-状态：VERIFIED，本地检查完成；待服务器20 epoch短筛
+状态：SCREENING；20 epoch 质量指标显示正向信号，待服务器机制与效率审计
 ```
 
 ## 核心假设
