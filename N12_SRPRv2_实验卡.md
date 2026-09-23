@@ -65,3 +65,21 @@ bash repro/run_n12_srprv2_screen_server.sh n12/srprv2_20e_seed1
 全盘服务器检查找到的 PriorProxy 40 轮目录缺少本次逐图指标配置，RGCRD 40 轮 B0 使用 MultiStep 而本次使用 Cosine，因此没有可复用的同协议 B0 40。下一步仅从上述 N9 B0 第20轮 checkpoint 续训剩余20轮。`repro/run_n12_b0_40e_server.py --check-only` 先核验来源、完整曲线、逐图文件及 optimizer/scheduler/loss；正式运行复制原目录到独立 `experiment/all_runs/n12/b0_40e_seed1_from_n9`，核对 model_20 哈希，按原 Cosine T_max=150 继续到40轮。新增默认关闭、只允许 LFMN 的 `--resume_data_epochs 20` 推进采样器与 worker 种子流；不修改 N9 原始20轮目录。完成后原 N12 续训入口才能复用这个同轨迹 B0 40。服务器40轮结果仍待验证。
 
 本地验证：使用真实 DIV2K 单图、x4、LFMN、一个训练 batch 完成第1轮保存和第1→2轮续训，日志明确从第2轮开始，`model_2.pt`、逐图 epoch2、两轮 PSNR 曲线和 `scheduler.last_epoch=2` 均存在；这个缩小数据协议仅为功能烟雾测试，不是研究性能结果。错误协议的烟雾目录被 B0 正式入口拒绝（`data_range` 不符）。
+
+## 40 epoch 决策（2026-09-23）
+
+服务器配对续训成功完成，源码分支 `codex/n12-srprv2`，续训入口提交 `3f42769`。N12 目录为 `/root/autodl-tmp/Image-Super-Resolution/experiment/all_runs/n12/srprv2_20e_seed1_20260922_121528/srprv2`，同轨迹 B0 目录为 `/root/autodl-tmp/Image-Super-Resolution/experiment/all_runs/n12/b0_40e_seed1_from_n9`。两组均存在 `model_40.pt`，自动汇总文件为 N12 目录下的 `n12_40_vs_b0.json`。
+
+| 指标 | 结果 |
+| --- | ---: |
+| epoch 40 PSNR：N12 / B0 | 28.625822 / 28.630186 dB |
+| epoch 40 PSNR 差值 | −0.004364 dB |
+| epoch 36–40 PSNR 差值均值 | +0.007066 dB |
+| 1–40 正 PSNR 差值轮次 | 36/40（90%） |
+| epoch 40 SSIM：N12 / B0 | 0.830547 / 0.830504 |
+| epoch 40 SSIM 差值 | +0.000043 |
+| epoch 40 逐图 PSNR 均值差 | −0.004357 dB |
+| epoch 40 逐图胜率 | 53% |
+| epoch 40 paired bootstrap 95% CI | [−0.012260,+0.002455] dB |
+
+结果呈现弱而不稳定的正向训练信号：末5轮均值为正，且第36–39轮均领先，但第40轮落后；终点逐图均值为负、胜率低于预注册的60%，置信区间下界未大于0。再结合服务器相同输入下参数约增加10.8%、Conv2d MAC约增加16.6%、中位延迟约增加45.8%，N12 当前实现未通过40轮晋级闸门，状态记为 **NO-GO**。不启动1000 epoch、五 benchmark 或完整消融。该结论针对当前 SRPRv2 实现，不等同于否定“跨阶段重建状态”这一更广泛研究方向。
