@@ -83,3 +83,11 @@ bash repro/run_n12_srprv2_screen_server.sh n12/srprv2_20e_seed1
 | epoch 40 paired bootstrap 95% CI | [−0.012260,+0.002455] dB |
 
 结果呈现弱而不稳定的正向训练信号：末5轮均值为正，且第36–39轮均领先，但第40轮落后；终点逐图均值为负、胜率低于预注册的60%，置信区间下界未大于0。再结合服务器相同输入下参数约增加10.8%、Conv2d MAC约增加16.6%、中位延迟约增加45.8%，N12 当前实现未通过40轮晋级闸门，状态记为 **NO-GO**。不启动1000 epoch、五 benchmark 或完整消融。该结论针对当前 SRPRv2 实现，不等同于否定“跨阶段重建状态”这一更广泛研究方向。
+
+## 无训练因果拆解（SRPR-Lite 前置审计）
+
+为判断 N12 的弱正向信号是否来自可保留的 `persistent state + feature writeback`，只允许对既有 epoch20/40 checkpoint 做一次无训练推理干预，不恢复 N12 的训练状态。固定八种路径：完整模型；仅关闭最终 `q` 输出；关闭全部 `q` 更新及输出；将 `D/D^T` observation 置零；逐阶段重置 state；关闭 feature writeback；只保留持续 state+writeback；只保留无持续性的 stage-local state+writeback。所有路径使用相同权重、DIV2K 0801–0900 和同 epoch B0，保存逐图 PSNR/SSIM、配对 bootstrap CI 及相对完整模型的输出变化。
+
+该审计只能诊断训练后组件的必要性，关闭路径存在分布偏移，不能证明删减版本重新训练后必然提高。只有在 epoch20和40均观察到：关闭持久性或writeback造成可辨认退化，同时关闭 `q`/observation 不退化或改善，才允许另建 SRPR-Lite 实现分支。若持久性与writeback关闭后几乎不变，停止使用跨阶段状态作为论文主张；若弱收益必须依赖完整HR/DC/q系统，则因效率代价停止压缩路线。
+
+入口为 `repro/run_n12_causal_audit_server.sh`；实现不会修改 `LFMN/model/lfmnsrprv2.py` 的默认前向。
