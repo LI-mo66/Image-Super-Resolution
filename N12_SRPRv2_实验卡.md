@@ -91,3 +91,21 @@ bash repro/run_n12_srprv2_screen_server.sh n12/srprv2_20e_seed1
 该审计只能诊断训练后组件的必要性，关闭路径存在分布偏移，不能证明删减版本重新训练后必然提高。只有在 epoch20和40均观察到：关闭持久性或writeback造成可辨认退化，同时关闭 `q`/observation 不退化或改善，才允许另建 SRPR-Lite 实现分支。若持久性与writeback关闭后几乎不变，停止使用跨阶段状态作为论文主张；若弱收益必须依赖完整HR/DC/q系统，则因效率代价停止压缩路线。
 
 入口为 `repro/run_n12_causal_audit_server.sh`；实现不会修改 `LFMN/model/lfmnsrprv2.py` 的默认前向。
+
+## 无训练因果拆解结果（2026-09-23）
+
+服务器使用提交 `cb31fcc`，分别对正式 epoch20/40 SRPRv2 checkpoint及其同轨迹B0，在DIV2K 0801–0900共100图执行预注册干预。结果如下，数值为相对Full SRPRv2的逐图平均PSNR变化：
+
+| 干预 | epoch20 | epoch40 |
+|---|---:|---:|
+| no-final-q | −0.166730 dB | −0.145925 dB |
+| no-q | −0.165063 dB | −0.146025 dB |
+| zero-observation | −0.057447 dB | −0.061906 dB |
+| reset-state | −0.077292 dB | −0.069683 dB |
+| no-writeback | −0.242431 dB | −0.282413 dB |
+| state-writeback-only | −0.183211 dB | −0.156808 dB |
+| stateless-writeback-only | −0.231210 dB | −0.244432 dB |
+
+所有降幅的paired bootstrap 95% CI均严格低于0。完整模型相对B0仍复现epoch20 `+0.012815 dB`、epoch40 `−0.004357 dB`。因此，持久state和feature writeback在已训练模型中具有明确因果必要性，但RGB状态 `q` 与 `D/D^T` observation同样不可直接删除；`state+writeback-only`远低于Full且低于B0。预注册的SRPR-Lite删减前提不成立，**不批准按该结构进入重新训练**。
+
+该结果同时表明各分支发生了强协同适配；它不能证明一个从零重新设计的紧凑状态模型必然失败，但不再支持把这种重新设计称为高概率延续。若未来继续N12，只允许先做保持Full函数语义和checkpoint输出的算子等价加速，不以关闭分支方式压缩；在等价加速未显著降低延迟前，不恢复长训。
