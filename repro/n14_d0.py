@@ -33,7 +33,10 @@ sys.path.insert(0, str(ROOT / "LFMN"))
 from model.lfmn import Net as LFMN  # noqa: E402
 
 
-PAIR_INDICES = ((0, 1), (2, 3), (4, 5), (6, 7))
+PAIRINGS = {
+    "adjacent": ((0, 1), (2, 3), (4, 5), (6, 7)),
+    "homologous": ((0, 4), (1, 5), (2, 6), (3, 7)),
+}
 
 
 def parse_args() -> argparse.Namespace:
@@ -45,6 +48,10 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--device", default="cuda" if torch.cuda.is_available() else "cpu")
     parser.add_argument("--patch", type=int, default=32, help="LR crop size")
     parser.add_argument("--operator-images", type=int, default=20)
+    parser.add_argument(
+        "--pairing", choices=tuple(PAIRINGS), default="adjacent",
+        help="TAB stage pairing used by the operator diagnostic",
+    )
     parser.add_argument("--train-images", type=int, default=800)
     parser.add_argument("--val-images", type=int, default=100)
     parser.add_argument("--steps", type=int, default=1000)
@@ -192,6 +199,35 @@ def cosine(left: torch.Tensor, right: torch.Tensor) -> float:
     return float(F.cosine_similarity(left.flatten().float(), right.flatten().float(), dim=0).item())
 
 
+def relative_error(reference: torch.Tensor, candidate: torch.Tensor) -> float:
+    numerator = torch.linalg.vector_norm((candidate - reference).float())
+    denominator = torch.linalg.vector_norm(reference.float()).clamp_min(1e-12)
+    return float((numerator / denominator).item())
+
+
+def prototype_set_cosine(first: torch.Tensor, second: torch.Tensor) -> float:
+    """Permutation-invariant bidirectional nearest-prototype cosine."""
+    require(first.shape == second.shape, "prototype sets must have equal shapes")
+    first = F.normalize(first.float(), dim=-1)
+    second = F.normalize(second.float(), dim=-1)
+    similarities = first @ second.T
+    return float(0.5 * (similarities.max(1).values.mean() + similarities.max(0).values.mean()).item())
+
+
+def response_with_prototypes(tab: nn.Module, feature: torch.Tensor, means: torch.Tensor) -> torch.Tensor:
+    """Evaluate one frozen TAB after a reversible prototype-buffer substitution."""
+    require(tab.means.shape == means.shape, "source/receiver prototype shapes differ")
+    original_means = tab.means.detach().clone()
+    original_initted = tab.initted.detach().clone()
+    try:
+        tab.means.copy_(means.to(device=tab.means.device, dtype=tab.means.dtype))
+        tab.initted.fill_(True)
+        return tab(feature) - feature
+    finally:
+        tab.means.copy_(original_means)
+        tab.initted.copy_(original_initted)
+
+
 def topk_jaccard(left: torch.Tensor, right: torch.Tensor, fraction: float = 0.1) -> float:
     left = left.square().mean(1).flatten(1)
     right = right.square().mean(1).flatten(1)
@@ -329,13 +365,16 @@ def run_smoke(args: argparse.Namespace, model: LFMN, device: torch.device) -> di
 def run_operators(args: argparse.Namespace, model: LFMN, device: torch.device) -> dict:
     pairs = paired_paths(args.data_root, "valid", args.operator_images)
     ranks = tuple(int(value) for value in args.ranks.split(","))
+    pair_indices = PAIRINGS[args.pairing]
     per_pair: dict[str, dict[str, list]] = {
-        str(index + 1): {
+        f"{source + 1}-{receiver + 1}": {
             "native_cka": [], "native_topk_jaccard": [], "common_cka": [],
             "common_cosine": [], "jacobian_noise_cosine": [],
             "jacobian_highpass_cosine": [], "basis": [],
+            "prototype_set_cosine": [], "prototype_transfer_cosine": [],
+            "prototype_transfer_relative_error": [],
         }
-        for index in range(4)
+        for source, receiver in pair_indices
     }
     generator = torch.Generator(device=device).manual_seed(20260923)
     rng = random.Random(20260923)
@@ -345,10 +384,11 @@ def run_operators(args: argparse.Namespace, model: LFMN, device: torch.device) -
             lr, _ = crop_pair(lr, hr, args.patch, rng, deterministic_index=image_index)
             lr = lr.unsqueeze(0).to(device)
             trace = trace_backbone(model, lr)
-            for pair_index, (source_index, receiver_index) in enumerate(PAIR_INDICES):
+            for source_index, receiver_index in pair_indices:
                 source_residual = trace["tab_residuals"][source_index]
                 receiver_residual = trace["tab_residuals"][receiver_index]
-                metrics = per_pair[str(pair_index + 1)]
+                pair_key = f"{source_index + 1}-{receiver_index + 1}"
+                metrics = per_pair[pair_key]
                 metrics["native_cka"].append(linear_cka(source_residual, receiver_residual))
                 metrics["native_topk_jaccard"].append(topk_jaccard(source_residual, receiver_residual))
 
@@ -362,6 +402,21 @@ def run_operators(args: argparse.Namespace, model: LFMN, device: torch.device) -
                 metrics["common_cka"].append(linear_cka(source_common, receiver_common))
                 metrics["common_cosine"].append(cosine(source_common, receiver_common))
                 metrics["basis"].append(low_rank_errors(source_common, receiver_common, ranks))
+
+                if source_tab.means.shape == receiver_tab.means.shape:
+                    metrics["prototype_set_cosine"].append(
+                        prototype_set_cosine(source_tab.means, receiver_tab.means)
+                    )
+                    transferred = response_with_prototypes(
+                        receiver_tab, receiver_input, source_tab.means
+                    )
+                    native_receiver = receiver_tab(receiver_input) - receiver_input
+                    metrics["prototype_transfer_cosine"].append(
+                        cosine(native_receiver, transferred)
+                    )
+                    metrics["prototype_transfer_relative_error"].append(
+                        relative_error(native_receiver, transferred)
+                    )
 
                 noise = torch.randn(common.shape, generator=generator, device=device, dtype=common.dtype)
                 noise = noise / noise.square().mean().sqrt().clamp_min(1e-6)
@@ -379,7 +434,7 @@ def run_operators(args: argparse.Namespace, model: LFMN, device: torch.device) -
     for pair, values in per_pair.items():
         pair_summary = {}
         for key, items in values.items():
-            if key != "basis":
+            if key != "basis" and items:
                 pair_summary[key] = {
                     "mean": float(np.mean(items)),
                     "ci95": bootstrap_ci(items),
@@ -403,10 +458,16 @@ def run_operators(args: argparse.Namespace, model: LFMN, device: torch.device) -
         "images": args.operator_images,
         "lr_patch": args.patch,
         "ranks": list(ranks),
+        "pairing": args.pairing,
+        "pair_indices_one_based": [
+            [source + 1, receiver + 1] for source, receiver in pair_indices
+        ],
         "pairs": summary,
         "notes": [
             "All comparisons are made in the common Bx48xHxW LR space.",
             "Low-rank diagnostics factor TAB response fields, not internal token IDs.",
+            "Prototype-set cosine is permutation invariant.",
+            "Prototype transfer replaces only the frozen receiver TAB EMA means, then restores them.",
             "These are surrogates for R1/R2 and do not by themselves prove CPES will improve PSNR.",
         ],
     }
