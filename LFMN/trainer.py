@@ -1,5 +1,6 @@
 import os
 import math
+import json
 from decimal import Decimal
 
 
@@ -77,6 +78,11 @@ class Trainer():
             self.optimizer.load(ckp.dir, epoch=ckp.resume_epoch)
 
         self.error_last = 1e8
+        # Optional, model-owned mechanism telemetry. Baseline models do not
+        # expose diagnostics_snapshot(), so their behavior and artifacts are
+        # unchanged.
+        self.mechanism_diagnostics = []
+        self._mechanism_diagnostic_seen = set()
 
     def train(self):
         self.loss.step()
@@ -103,7 +109,12 @@ class Trainer():
             timer_model.tic()
 
             self.optimizer.zero_grad()
+            self._set_mechanism_diagnostics(
+                self._mechanism_diagnostic_needed(epoch, 'train', batch)
+            )
             model_output = self.model(lr, idx_scale)
+            self._capture_mechanism_diagnostics(epoch, 'train', batch)
+            self._set_mechanism_diagnostics(False)
             if self.rgcrd_mode == 'off':
                 loss = self.loss(model_output, hr)
             else:
@@ -265,7 +276,16 @@ class Trainer():
                 #for lr, hr, filename, _ in tqdm(d, ncols=80):
                 for lr, hr, filename in tqdm(d, ncols=80):
                     lr, hr = self.prepare(lr, hr)
+                    self._set_mechanism_diagnostics(
+                        self._mechanism_diagnostic_needed(
+                            epoch, 'eval', idx_data
+                        )
+                    )
                     sr = self.model(lr, idx_scale)
+                    self._capture_mechanism_diagnostics(
+                        epoch, 'eval', idx_data
+                    )
+                    self._set_mechanism_diagnostics(False)
                     sr = utility.quantize(sr, self.args.rgb_range)
 
                     save_list = [sr]
@@ -324,6 +344,7 @@ class Trainer():
 
         if not self.args.test_only:
             self.ckp.save(self, epoch)
+            self._save_mechanism_diagnostics()
         else:
             # Test-only runs still need machine-readable, full-precision metrics.
             # Without these files downstream comparisons can only recover the
@@ -339,6 +360,68 @@ class Trainer():
         )
 
         torch.set_grad_enabled(True)
+
+    def _diagnostic_source(self):
+        source = getattr(self.model, 'diagnostics_snapshot', None)
+        if source is None:
+            source = getattr(
+                getattr(self.model, 'model', None),
+                'diagnostics_snapshot', None,
+            )
+        return source
+
+    def _mechanism_diagnostic_needed(self, epoch, phase, batch):
+        if phase == 'train' and int(batch) != 0:
+            return False
+        return (int(epoch), phase, int(batch)) not in self._mechanism_diagnostic_seen
+
+    def _set_mechanism_diagnostics(self, enabled):
+        target = getattr(self.model, 'set_diagnostics_enabled', None)
+        if target is None:
+            target = getattr(
+                getattr(self.model, 'model', None),
+                'set_diagnostics_enabled', None,
+            )
+        if target is not None:
+            target(enabled)
+
+    def _capture_mechanism_diagnostics(self, epoch, phase, batch):
+        # One train batch and one image per validation dataset/epoch are enough
+        # for trajectory diagnostics and avoid perturbing training throughput.
+        if phase == 'train' and int(batch) != 0:
+            return
+        sample_key = (int(epoch), phase, int(batch))
+        if sample_key in self._mechanism_diagnostic_seen:
+            return
+        source = self._diagnostic_source()
+        if source is None:
+            return
+        values = source()
+        if not values:
+            return
+        lengths = {len(value) for value in values.values()}
+        if len(lengths) != 1:
+            raise ValueError('mechanism diagnostics have inconsistent stages')
+        self._mechanism_diagnostic_seen.add(sample_key)
+        for stage in range(next(iter(lengths))):
+            row = {
+                'epoch': int(epoch), 'phase': phase,
+                'batch': int(batch), 'stage': int(stage),
+            }
+            row.update({key: float(value[stage]) for key, value in values.items()})
+            self.mechanism_diagnostics.append(row)
+
+    def _save_mechanism_diagnostics(self):
+        if not self.mechanism_diagnostics:
+            return
+        path = self.ckp.get_path('mechanism_diagnostics.pt')
+        torch.save(self.mechanism_diagnostics, path)
+        with open(
+            self.ckp.get_path('mechanism_diagnostics.jsonl'),
+            'w', encoding='utf-8',
+        ) as handle:
+            for row in self.mechanism_diagnostics:
+                handle.write(json.dumps(row, sort_keys=True) + '\n')
 
     def prepare(self, *args):
         device = torch.device('cpu' if self.args.cpu else 'cuda')
