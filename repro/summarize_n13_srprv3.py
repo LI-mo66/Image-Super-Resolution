@@ -95,14 +95,14 @@ def main():
         'feedback_on_off_mean_abs': mechanism['feedback_on_off_mean_abs'],
     }
     gates = {
-        'last5_positive': result['last5_psnr_delta'] > 0,
-        'ci_lower_positive': confidence[0] > 0,
-        'win_rate_at_least_60pct': result['per_image_win_rate'] >= 0.60,
-        'ssim_nonnegative': result['epoch20_ssim_delta'] >= 0,
-        'parameters_not_above_baseline': result['parameter_ratio'] <= 1.0,
-        'conv2d_macs_not_above_baseline': result['conv2d_mac_ratio'] <= 1.0,
-        'median_latency_within_10pct': result['median_latency_ratio'] <= 1.10,
-        'feedback_active': result['feedback_on_off_mean_abs'] > 0,
+        'last5_positive': bool(result['last5_psnr_delta'] > 0),
+        'ci_lower_positive': bool(confidence[0] > 0),
+        'win_rate_at_least_60pct': bool(result['per_image_win_rate'] >= 0.60),
+        'ssim_nonnegative': bool(result['epoch20_ssim_delta'] >= 0),
+        'parameters_not_above_baseline': bool(result['parameter_ratio'] <= 1.0),
+        'conv2d_macs_not_above_baseline': bool(result['conv2d_mac_ratio'] <= 1.0),
+        'median_latency_within_10pct': bool(result['median_latency_ratio'] <= 1.10),
+        'feedback_active': bool(result['feedback_on_off_mean_abs'] > 0),
     }
     result['gates'] = gates
     result['decision'] = 'PASS_20_TO_40' if all(gates.values()) else 'NO_AUTOMATIC_EXTENSION'
