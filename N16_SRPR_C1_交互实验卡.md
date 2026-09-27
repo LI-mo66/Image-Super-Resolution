@@ -158,3 +158,18 @@ paired-image SSIM delta:  +0.0008209
 `last_epoch=20/T_max=150`、optimizer state非空、蒸馏日志恰好20行、epoch20逐图指标恰好100张，
 以及模型/优化器/scheduler复制前后SHA256一致。40轮汇总还必须证明复制后的前20轮曲线逐元素
 不变，并检查最终scheduler为`last_epoch=40`。
+
+## 14. 40-epoch结果与一次性外部基准闸门
+
+严格续训退出状态为0，且`first20_history_exact=True`。相对C1，SRPR+C1在epoch40最终/末5轮
+分别为`+0.031443/+0.026326 dB`，续训20轮中19轮为正；100图均值`+0.031436 dB`、胜率
+90%、95% CI `[+0.021654,+0.044618] dB`，SSIM `+0.0004949`。四项40轮预注册闸门全部
+通过，自动决定为`PROMOTE_TO_150E_CONFIRMATION`。
+
+在150轮前允许一次固定epoch40外部评测，数据集锁定为Set5、Set14、B100、Urban100和Manga109，
+两组分别加载自己的`model_40.pt`，×4、无self-ensemble、不调参、不选择benchmark最佳checkpoint。
+主比较仍为`SRPR+C1-C1`。该评测检验跨数据集泛化，不能替代150轮对训练后期稳定性的检验。
+
+预注册解释：Urban100与Manga109都为正、至少4/5数据集平均PSNR为正且没有数据集低于
+`-0.01 dB`，记为`BROAD_EXTERNAL_SUPPORT`；至少3/5为正且无大幅退化记为混合支持；否则
+记为弱支持。benchmark结果只决定是否值得立即投入150轮，不允许用于调结构或选择checkpoint。
