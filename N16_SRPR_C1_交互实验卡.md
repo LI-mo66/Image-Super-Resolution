@@ -6,7 +6,7 @@
 候选编号：N16
 候选名称：SRPRv2 × C1 interaction
 候选类型：训练交互诊断（结构候选 + 已验证训练策略）
-当前状态：APPROVED
+当前状态：SCREENING（20 epoch 已通过；40 epoch 严格续训待执行）
 分支：codex/n16-srpr-c1-interaction
 共同基线提交：b198de7cd2b3a8ddf463c573278b1385a223adf7
 负责人/AI：Codex
@@ -126,3 +126,35 @@ run:       repro/run_n16_srpr_c1_screen_server.sh
 summary:   repro/summarize_n16_srpr_c1.py
 output:    experiment/all_runs/n16_srpr_c1_*/{c1,srpr_c1}
 ```
+
+## 12. 20-epoch服务器结果
+
+服务器提交为 `6e2442619c72d33dfc195fecf7d6e01a197de08d`，结果目录为
+`experiment/all_runs/n16/srpr_c1_20e_seed1_6e24426_r3`，包装退出状态为0。主比较
+`SRPRv2+C1 - B0+C1` 如下：
+
+```text
+epoch20 PSNR delta:       +0.038300 dB
+last-5 mean delta:        +0.015380 dB
+positive epochs:          19/20
+epoch20 SSIM delta:       +0.0008213
+paired-image mean delta:  +0.038288 dB
+paired-image win rate:    92.0%
+bootstrap 95% CI:         [+0.029417,+0.048775] dB
+paired-image SSIM delta:  +0.0008209
+```
+
+六项20轮预注册闸门全部通过，自动决定为
+`PROMOTE_TO_MATCHED_40E_CONTINUATION`。该结论只批准严格配对40轮续训，不等于长期性能或
+论文创新已经成立。
+
+## 13. 40-epoch续训完整性要求
+
+两组分别从自己的epoch20目录复制到独立40轮目录，并恢复模型、Adam状态、Cosine scheduler
+状态、损失日志、PSNR/SSIM历史及RGCRD日志。训练DataLoader使用seed1重新构造后，先以空数据
+迭代精确推进20个epoch的generator消耗，再开始epoch21，避免续训随机裁剪流从epoch1重启。
+
+续训前必须验证：源目录状态为0、20轮自动决定已通过、两组曲线恰好20点、scheduler
+`last_epoch=20/T_max=150`、optimizer state非空、蒸馏日志恰好20行、epoch20逐图指标恰好100张，
+以及模型/优化器/scheduler复制前后SHA256一致。40轮汇总还必须证明复制后的前20轮曲线逐元素
+不变，并检查最终scheduler为`last_epoch=40`。

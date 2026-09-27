@@ -28,6 +28,28 @@ class Data:
             # initialization, which consumes a different amount of RNG state.
             train_generator = torch.Generator()
             train_generator.manual_seed(args.seed)
+            replay_epochs = int(getattr(args, 'resume_data_epochs', 0))
+            if replay_epochs < 0:
+                raise ValueError('resume_data_epochs must be non-negative')
+            if replay_epochs:
+                if not args.load or int(args.resume) != replay_epochs:
+                    raise ValueError(
+                        'resume_data_epochs requires matching --load and --resume'
+                    )
+                # Each DataLoader iterator consumes the same generator draws
+                # for its worker base seed and shuffled sampler regardless of
+                # worker count. Replay those draws without decoding images so
+                # the resumed iterator starts at the exact next epoch stream.
+                replay_loader = dataloader.DataLoader(
+                    range(len(MyConcatDataset(datasets))),
+                    batch_size=args.batch_size,
+                    shuffle=True,
+                    num_workers=0,
+                    generator=train_generator,
+                )
+                for _ in range(replay_epochs):
+                    for _ in replay_loader:
+                        pass
             self.loader_train = dataloader.DataLoader(
                 MyConcatDataset(datasets),
                 batch_size=args.batch_size,
