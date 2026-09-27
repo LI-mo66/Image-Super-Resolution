@@ -9,7 +9,6 @@ SWINIR_REPO="${SWINIR_REPO:-$PROJECT_ROOT/repro/swinir_ref}"
 TEACHER_CHECKPOINT="${RGCRD_TEACHER_CHECKPOINT:-$PROJECT_ROOT/repro/teacher_weights/001_classicalSR_DIV2K_s48w8_SwinIR-M_x4.pth}"
 PYTHON_BIN="${PYTHON_BIN:-python}"
 GPU="${GPU:-0}"
-GROUPS="${GROUPS:-c1 srpr_c1}"
 TEACHER_MICROBATCH="${TEACHER_MICROBATCH:-1}"
 OUTPUT="$PROJECT_ROOT/experiment/all_runs/$RUN_NAME"
 SOURCE_COMMIT="$(git -C "$PROJECT_ROOT" rev-parse HEAD)"
@@ -26,11 +25,6 @@ if [[ ! -f "$TEACHER_CHECKPOINT" || ! -f "$SWINIR_REPO/models/network_swinir.py"
   printf 'Teacher missing. Run repro/setup_rgcrd_teacher_server.sh first.\n' >&2
   exit 2
 fi
-if [[ "$GROUPS" != "c1 srpr_c1" ]]; then
-  printf 'N16 requires the complete paired groups: c1 srpr_c1\n' >&2
-  exit 2
-fi
-
 mkdir -p "$OUTPUT"
 "$PYTHON_BIN" "$SCRIPT_DIR/check_div2k_x4.py" \
   --root "$DATA_ROOT/DIV2K" | tee "$OUTPUT/div2k_check.log"
