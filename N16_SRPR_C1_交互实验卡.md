@@ -6,11 +6,11 @@
 候选编号：N16
 候选名称：SRPRv2 × C1 interaction
 候选类型：训练交互诊断（结构候选 + 已验证训练策略）
-当前状态：SCREENING（20 epoch 已通过；40 epoch 严格续训待执行）
+当前状态：PROMOTED（20/40 epoch与固定epoch40五benchmark均通过；150 epoch待执行）
 分支：codex/n16-srpr-c1-interaction
 共同基线提交：b198de7cd2b3a8ddf463c573278b1385a223adf7
 负责人/AI：Codex
-日期：2026-09-27
+日期：2026-09-29
 ```
 
 本轮不是把 C1 包装成新的结构创新，而是对已经出现“20 epoch 正、40 epoch 反转”的
@@ -173,3 +173,35 @@ paired-image SSIM delta:  +0.0008209
 预注册解释：Urban100与Manga109都为正、至少4/5数据集平均PSNR为正且没有数据集低于
 `-0.01 dB`，记为`BROAD_EXTERNAL_SUPPORT`；至少3/5为正且无大幅退化记为混合支持；否则
 记为弱支持。benchmark结果只决定是否值得立即投入150轮，不允许用于调结构或选择checkpoint。
+
+固定epoch40端点的实际结果为：Set5、Set14、B100、Urban100、Manga109分别提升
+`+0.056861`、`+0.047473`、`+0.026658`、`+0.067673`、`+0.157692 dB`，五组逐图
+bootstrap 95% CI下界均大于0，合并328图均值为`+0.084056 dB`、胜率83.2%。自动判定为
+`BROAD_EXTERNAL_SUPPORT`，因此批准严格40→150续训；不据此修改结构、KD权重或checkpoint。
+
+## 15. 150-epoch严格续训与预注册闸门
+
+两组从各自epoch40状态继续，必须恢复模型、Adam和Cosine scheduler，保持`T_max=150`，并重放
+40轮DataLoader generator消耗。输出目录与40轮源目录隔离，复制前后校验模型、优化器和调度器
+SHA256；汇总必须证明前40轮PSNR/SSIM历史逐元素不变，最终scheduler为`last_epoch=150`。
+
+150轮通过必须同时满足：
+
+1. epoch150 PSNR增量`>= +0.020 dB`；
+2. 最后10轮平均增量`>= +0.015 dB`；
+3. epoch41–150至少88/110轮为正；
+4. DIV2K 100图paired bootstrap 95% CI下界`> 0`；
+5. epoch150 SSIM不低于C1。
+
+全部通过时自动记为`PROMOTE_TO_LONG_RUN_VALIDATION`；否则记为`STOP_OR_REVIEW_N16`，不得用最佳
+epoch替代终点，也不得未经审计直接投入1000/1500轮。150轮通过后，才使用固定epoch150端点
+复测五benchmark，并进入多seed、复杂度和四组交互归因。
+
+新增资产：
+
+```text
+resume check: repro/check_n16_150e_resume.py
+run:          repro/run_n16_srpr_c1_150e_server.{py,sh}
+summary:      repro/summarize_n16_srpr_c1_150e.py
+summary test: repro/check_n16_150e_summary.py
+```
