@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Paired five-benchmark summary for fixed N16 epoch-40 checkpoints."""
+"""Paired five-benchmark summary for fixed N16 endpoint checkpoints."""
 import argparse
 import json
 from pathlib import Path
@@ -39,6 +39,8 @@ def bootstrap_ci(values, seed):
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('run_dir', type=Path)
+    parser.add_argument('--checkpoint-epoch', type=int, choices=(40, 150),
+                        default=40)
     args = parser.parse_args()
     c1 = metrics(args.run_dir / 'c1')
     srpr = metrics(args.run_dir / 'srpr_c1')
@@ -88,8 +90,12 @@ def main():
     pooled = np.asarray(all_deltas, dtype=np.float64)
     pooled_ci = bootstrap_ci(pooled, seed=17)
     payload = {
-        'comparison': 'epoch40 SRPRv2+C1 minus epoch40 B0+C1',
-        'checkpoint_selection': 'fixed preregistered epoch40 endpoint',
+        'comparison': 'epoch{} SRPRv2+C1 minus epoch{} B0+C1'.format(
+            args.checkpoint_epoch, args.checkpoint_epoch
+        ),
+        'checkpoint_selection': 'fixed preregistered epoch{} endpoint'.format(
+            args.checkpoint_epoch
+        ),
         'self_ensemble': False,
         'datasets': rows,
         'positive_datasets': positive,
@@ -99,7 +105,9 @@ def main():
         'pooled_bootstrap_95ci': [float(pooled_ci[0]), float(pooled_ci[1])],
         'decision': decision,
     }
-    print('N16 fixed epoch-40 five-benchmark evaluation')
+    print('N16 fixed epoch-{} five-benchmark evaluation'.format(
+        args.checkpoint_epoch
+    ))
     print('comparison=SRPRv2+C1 minus B0+C1; self_ensemble=False')
     print('| dataset | C1 PSNR | SRPR+C1 PSNR | delta | SSIM delta | wins | 95% CI |')
     print('|---|---:|---:|---:|---:|---:|---|')

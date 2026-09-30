@@ -234,3 +234,10 @@ paired-image SSIM delta:    +0.0011098
 Cosine `T_max=150`、普通输出蒸馏协议内，SRPRv2相对C1的结构增量不仅未在后期消失，而且在最后
 20轮稳定保持约`+0.046 dB`。下一步只允许使用固定epoch150端点复测五benchmark，并开展推理
 复杂度和多seed确认；不得根据外测结果回调结构、KD权重或checkpoint。
+
+固定epoch150五benchmark评测沿用epoch40外测口径：Set5、Set14、B100、Urban100、Manga109
+×4、无self-ensemble、两组相同评测代码和逐图配对统计。只允许加载各自`model_150.pt`，入口在
+创建输出目录前严格检查150轮汇总决定、checkpoint结构加载、SHA256和数据集数量。外测仍使用
+既定`BROAD_EXTERNAL_SUPPORT`判据，仅用于确认长训后的跨数据集泛化，不用于选择epoch或回调
+结构。入口为`repro/run_n16_benchmarks_150e_server.py`，合成验证为
+`repro/check_n16_benchmark_150e.py`。
