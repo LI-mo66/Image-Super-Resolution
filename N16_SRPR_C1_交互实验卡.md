@@ -6,7 +6,7 @@
 候选编号：N16
 候选名称：SRPRv2 × C1 interaction
 候选类型：训练交互诊断（结构候选 + 已验证训练策略）
-当前状态：PROMOTED（20/40 epoch与固定epoch40五benchmark均通过；150 epoch待执行）
+当前状态：PROMOTED（20/40/150 epoch均通过；固定epoch150五benchmark待执行）
 分支：codex/n16-srpr-c1-interaction
 共同基线提交：b198de7cd2b3a8ddf463c573278b1385a223adf7
 负责人/AI：Codex
@@ -205,3 +205,32 @@ run:          repro/run_n16_srpr_c1_150e_server.{py,sh}
 summary:      repro/summarize_n16_srpr_c1_150e.py
 summary test: repro/check_n16_150e_summary.py
 ```
+
+## 16. 150-epoch服务器结果
+
+服务器提交为`6a683288f7e8905a7be5e5112fa7817a54736b4f`，结果目录为
+`experiment/all_runs/n16/srpr_c1_150e_seed1_6a68328_r2`，包装退出状态为0，全部关键模型、优化器、
+调度器和汇总文件存在，且`first40_history_exact=True`。相对C1，SRPR+C1结果为：
+
+```text
+epoch40 delta:              +0.031443 dB
+epoch50 delta:              +0.034922 dB
+epoch75 delta:              +0.044744 dB
+epoch100 delta:             +0.040394 dB
+epoch125 delta:             +0.045511 dB
+epoch150 delta:             +0.046227 dB
+last-10 mean delta:         +0.046059 dB
+last-20 mean delta:         +0.046088 dB
+epoch41-150 positive:       110/110
+epoch150 SSIM delta:        +0.0011098
+paired-image mean delta:    +0.046229 dB
+paired-image median delta:  +0.035883 dB
+paired-image win rate:      97.0%
+bootstrap 95% CI:           [+0.038581,+0.055531] dB
+paired-image SSIM delta:    +0.0011098
+```
+
+五项预注册闸门全部通过，自动决定为`PROMOTE_TO_LONG_RUN_VALIDATION`。该结果证明在当前单seed、
+Cosine `T_max=150`、普通输出蒸馏协议内，SRPRv2相对C1的结构增量不仅未在后期消失，而且在最后
+20轮稳定保持约`+0.046 dB`。下一步只允许使用固定epoch150端点复测五benchmark，并开展推理
+复杂度和多seed确认；不得根据外测结果回调结构、KD权重或checkpoint。
