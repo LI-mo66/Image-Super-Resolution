@@ -133,6 +133,15 @@ class Net(BaselineNet):
         ])
         self.stage_probe = nn.Conv2d(n_feats, 3 * scale * scale, 1)
         self.last_diagnostics = {}
+        # Mechanism statistics are useful during training/audits but previously
+        # added a second HR reconstruction and downsampling pass at every stage
+        # during ordinary inference.  This non-persistent flag keeps checkpoints
+        # unchanged and makes evaluation diagnostics explicitly opt-in.
+        self.collect_eval_diagnostics = False
+
+    def enable_eval_diagnostics(self, enabled=True):
+        self.collect_eval_diagnostics = bool(enabled)
+        return self
 
     def diagnostics_snapshot(self):
         return {
@@ -169,12 +178,16 @@ class Net(BaselineNet):
             x.shape[0], 3, x.shape[2], x.shape[3],
             device=x.device, dtype=x.dtype,
         )
-        diagnostics = {key: [] for key in (
-            'residual_l2', 'backprojection_l2', 'observation_l2',
-            'state_l2', 'state_delta_l2', 'feature_delta_l2',
-            'q_delta_l2', 'gate_mean', 'gate_std', 'gate_saturation',
-            'data_consistency_ratio',
-        )}
+        collect_diagnostics = self.training or self.collect_eval_diagnostics
+        diagnostics = (
+            {key: [] for key in (
+                'residual_l2', 'backprojection_l2', 'observation_l2',
+                'state_l2', 'state_delta_l2', 'feature_delta_l2',
+                'q_delta_l2', 'gate_mean', 'gate_std', 'gate_saturation',
+                'data_consistency_ratio',
+            )}
+            if collect_diagnostics else None
+        )
         for i, prox in enumerate(self.proximal):
             prev = feat
             beta, gamma = self.sfmls[i](fs)
@@ -192,49 +205,51 @@ class Net(BaselineNet):
                 mode='bilinear',
                 align_corners=False,
             )
-            state_before = state
+            state_before = state if collect_diagnostics else None
             state, delta_feat, delta_q, gate = prox(
                 feat, state, observation
             )
-            state_delta = state - state_before
             feat = feat + delta_feat
             q = q + delta_q
-            next_x = self._observation_estimate(x, feat, q)
-            next_residual = x - self.observation.down(next_x)
-            diagnostics['residual_l2'].append(
-                residual.detach().float().square().mean().sqrt()
-            )
-            diagnostics['backprojection_l2'].append(
-                back.detach().float().square().mean().sqrt()
-            )
-            diagnostics['observation_l2'].append(
-                observation.detach().float().square().mean().sqrt()
-            )
-            diagnostics['state_l2'].append(
-                state.detach().float().square().mean().sqrt()
-            )
-            diagnostics['state_delta_l2'].append(
-                state_delta.detach().float().square().mean().sqrt()
-            )
-            diagnostics['feature_delta_l2'].append(
-                delta_feat.detach().float().square().mean().sqrt()
-            )
-            diagnostics['q_delta_l2'].append(
-                delta_q.detach().float().square().mean().sqrt()
-            )
-            diagnostics['gate_mean'].append(gate.detach().float().mean())
-            diagnostics['gate_std'].append(gate.detach().float().std())
-            diagnostics['gate_saturation'].append(
-                ((gate < 0.01) | (gate > 0.99)).float().mean()
-            )
-            ratio = (
-                next_residual.detach().float().square().mean().sqrt()
-                / residual.detach().float().square().mean().sqrt().clamp_min(1e-8)
-            )
-            diagnostics['data_consistency_ratio'].append(ratio)
-        self.last_diagnostics = {
-            key: torch.stack(value) for key, value in diagnostics.items()
-        }
+            if collect_diagnostics:
+                state_delta = state - state_before
+                next_x = self._observation_estimate(x, feat, q)
+                next_residual = x - self.observation.down(next_x)
+                diagnostics['residual_l2'].append(
+                    residual.detach().float().square().mean().sqrt()
+                )
+                diagnostics['backprojection_l2'].append(
+                    back.detach().float().square().mean().sqrt()
+                )
+                diagnostics['observation_l2'].append(
+                    observation.detach().float().square().mean().sqrt()
+                )
+                diagnostics['state_l2'].append(
+                    state.detach().float().square().mean().sqrt()
+                )
+                diagnostics['state_delta_l2'].append(
+                    state_delta.detach().float().square().mean().sqrt()
+                )
+                diagnostics['feature_delta_l2'].append(
+                    delta_feat.detach().float().square().mean().sqrt()
+                )
+                diagnostics['q_delta_l2'].append(
+                    delta_q.detach().float().square().mean().sqrt()
+                )
+                diagnostics['gate_mean'].append(gate.detach().float().mean())
+                diagnostics['gate_std'].append(gate.detach().float().std())
+                diagnostics['gate_saturation'].append(
+                    ((gate < 0.01) | (gate > 0.99)).float().mean()
+                )
+                ratio = (
+                    next_residual.detach().float().square().mean().sqrt()
+                    / residual.detach().float().square().mean().sqrt().clamp_min(1e-8)
+                )
+                diagnostics['data_consistency_ratio'].append(ratio)
+        self.last_diagnostics = (
+            {key: torch.stack(value) for key, value in diagnostics.items()}
+            if collect_diagnostics else {}
+        )
         return self._final_decode(x, x0, feat, q)
 
 
