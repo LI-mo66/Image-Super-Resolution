@@ -178,7 +178,10 @@ class Net(BaselineNet):
             x.shape[0], 3, x.shape[2], x.shape[3],
             device=x.device, dtype=x.dtype,
         )
-        collect_diagnostics = self.training or self.collect_eval_diagnostics
+        # Diagnostics are observational only: none of their tensors enters the
+        # reconstruction loss or the next stage.  Keep them explicit in both
+        # train and eval so long runs do not pay for an unused second HR pass.
+        collect_diagnostics = self.collect_eval_diagnostics
         diagnostics = (
             {key: [] for key in (
                 'residual_l2', 'backprojection_l2', 'observation_l2',

@@ -46,11 +46,33 @@ def main():
 
     training_model = SRPRv2Net(scale=4).train()
     training_model.load_state_dict(model.state_dict(), strict=True)
-    training_input = sample.clone().requires_grad_(True)
-    training_output = training_model(training_input)
-    training_output.mean().backward()
+    fast_training_model = SRPRv2Net(scale=4).train()
+    fast_training_model.load_state_dict(model.state_dict(), strict=True)
+    diagnostic_input = sample.clone().requires_grad_(True)
+    fast_input = sample.clone().requires_grad_(True)
+    diagnostic_output = training_model.enable_eval_diagnostics(True)(
+        diagnostic_input
+    )
+    fast_training_output = fast_training_model(fast_input)
+    torch.testing.assert_close(
+        fast_training_output, diagnostic_output, rtol=0, atol=0
+    )
+    diagnostic_output.mean().backward()
+    fast_training_output.mean().backward()
     assert training_model.last_diagnostics
-    assert torch.isfinite(training_input.grad).all()
+    assert fast_training_model.last_diagnostics == {}
+    torch.testing.assert_close(fast_input.grad, diagnostic_input.grad,
+                               rtol=0, atol=0)
+    for diagnostic_parameter, fast_parameter in zip(
+        training_model.parameters(), fast_training_model.parameters()
+    ):
+        if diagnostic_parameter.grad is None or fast_parameter.grad is None:
+            assert diagnostic_parameter.grad is fast_parameter.grad
+        else:
+            torch.testing.assert_close(
+                fast_parameter.grad, diagnostic_parameter.grad,
+                rtol=0, atol=0,
+            )
 
     print(json.dumps({
         'audit': 'N16 diagnostic-free inference fast path',
@@ -59,7 +81,14 @@ def main():
         'eval_output_max_abs_error': float((fast - reference).abs().max()),
         'eval_diagnostics_opt_in': 'passed',
         'default_eval_diagnostics_skipped': 'passed',
-        'training_diagnostics_preserved': 'passed',
+        'training_diagnostics_opt_in': 'passed',
+        'training_output_max_abs_error': float(
+            (fast_training_output - diagnostic_output).detach().abs().max()
+        ),
+        'training_input_gradient_max_abs_error': float(
+            (fast_input.grad - diagnostic_input.grad).abs().max()
+        ),
+        'training_parameter_gradients_exact': 'passed',
         'strict_save_reload': 'passed',
         'finite_training_gradient': 'passed',
     }, indent=2))
