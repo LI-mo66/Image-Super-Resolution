@@ -112,12 +112,15 @@ class PriorConditionedSoftTokenRouter(nn.Module):
         pixel_value = self.to_pixel_value(feature)
 
         # A^T V / sum(A), with accumulation and division in FP32.
-        assignment_float = assignment.float()
-        mass = assignment_float.sum(dim=1)
-        tokens = torch.bmm(
-            assignment_float.transpose(1, 2), pixel_value.float()
-        )
-        tokens = tokens / mass.unsqueeze(-1).clamp_min(self.eps)
+        # Explicit float() alone does not disable autocast for bmm.
+        # Keep the entire reduction in FP32 even inside caller autocast.
+        with torch.autocast(device_type=x.device.type, enabled=False):
+            assignment_float = assignment.float()
+            mass = assignment_float.sum(dim=1)
+            tokens = torch.bmm(
+                assignment_float.transpose(1, 2), pixel_value.float()
+            )
+            tokens = tokens / mass.unsqueeze(-1).clamp_min(self.eps)
         tokens = tokens.to(pixel_value.dtype)
         self._record_stats(assignment, mass)
 
