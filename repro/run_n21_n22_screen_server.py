@@ -10,6 +10,9 @@ import shutil
 import subprocess
 import sys
 import time
+# The queue controller should not own a CUDA context. In containers NVML may
+# expose host PIDs rather than namespace PIDs; GPU metadata is queried via CLI.
+os.environ['PYTORCH_NVML_BASED_CUDA_CHECK']='1'
 import torch
 
 ROOT=Path(__file__).resolve().parents[1]
@@ -40,9 +43,16 @@ def git(*args):
 
 def environment():
     modules=('numpy','einops','PIL','imageio','skimage','cv2','matplotlib','tqdm')
-    return {'torch':torch.__version__,'cuda':torch.version.cuda,'gpu':torch.cuda.get_device_name(0),
+    gpu=hardware()
+    return {'torch':torch.__version__,'cuda':torch.version.cuda,'gpu':gpu['name'],'driver':gpu['driver'],
             'python':sys.version,'executable':sys.executable,
             'libraries':{name:str(getattr(importlib.import_module(name),'__version__','unknown')) for name in modules}}
+
+def hardware():
+    raw=subprocess.check_output(['nvidia-smi','--id=0','--query-gpu=name,memory.total,driver_version',
+                                 '--format=csv,noheader,nounits'],text=True).strip()
+    name,memory,driver=[part.strip() for part in raw.split(',')]
+    return {'name':name,'total_mib':int(memory),'driver':driver}
 
 def code_hashes():
     paths=sorted(list((ROOT/'LFMN').rglob('*.py'))+list((ROOT/'repro').glob('*n21*.py'))
@@ -142,7 +152,7 @@ def main():
             raise RuntimeError('Tracked source is dirty')
         if other_gpu_pids():
             raise RuntimeError('Other GPU jobs detected; use a dedicated instance')
-        if torch.cuda.get_device_properties(0).total_memory<16*1024**3:
+        if hardware()['total_mib']<16*1024:
             raise RuntimeError('Server handoff requires >=16GiB VRAM; recommend RTX4090 24GB')
         if shutil.disk_usage(args.output.parent if args.output.parent.exists() else ROOT).free<5*1024**3:
             raise RuntimeError('Need >=5GiB free result storage (datasets not included)')
@@ -166,7 +176,7 @@ def main():
         manifest={'commit':commit,'source_hashes':hashes,'data_hashes':data,'protocol':p,
             'data_root':str(args.data_root),'output':str(args.output),'status':'PREPARING',
             'started_utc':now(),'torch':torch.__version__,'cuda':torch.version.cuda,
-            'gpu':torch.cuda.get_device_name(0),'environment':env,'group_exit_codes':{}}
+            'gpu':env['gpu'],'environment':env,'group_exit_codes':{}}
         write(manifest_path,manifest)
         # Local checker weights generated here: no historical tar/checkpoint required.
         torch.manual_seed(1)

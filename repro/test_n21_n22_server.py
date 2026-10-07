@@ -51,6 +51,7 @@ class QueueSafety(unittest.TestCase):
                 stack.enter_context(patch.object(queue,'git',side_effect=mocked_git))
                 stack.enter_context(patch.object(queue,'code_hashes',return_value={'test':'unit'}))
                 stack.enter_context(patch.object(queue,'environment',return_value={'unit':'unit'}))
+                stack.enter_context(patch.object(queue,'hardware',return_value={'name':'unit','total_mib':24576,'driver':'unit'}))
                 stack.enter_context(patch.object(queue,'data_hashes',return_value={'test':'unit'}))
                 stack.enter_context(patch.object(queue,'other_gpu_pids',side_effect=[[],[123456] if other else []]))
                 stack.enter_context(patch.object(queue,'run',side_effect=run))
