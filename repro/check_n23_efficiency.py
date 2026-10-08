@@ -84,7 +84,10 @@ def phases(net, image):
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument('--baseline-checkpoint', type=Path, required=True)
+    checkpoint_choice = ap.add_mutually_exclusive_group(required=True)
+    checkpoint_choice.add_argument('--baseline-checkpoint', type=Path)
+    checkpoint_choice.add_argument('--n23-only-checkpoint', type=Path,
+                                   help='Single model resource recording, no B0 or relative gate')
     ap.add_argument('--warmup', type=int, default=10)
     ap.add_argument('--repeats', type=int, default=30)
     ap.add_argument('--rounds', type=int, default=4)
@@ -98,14 +101,44 @@ def main():
         args.output = args.output.resolve()
         args.output.relative_to((ROOT/'experiment/all_runs').resolve())
         assert not args.output.exists(), 'Refuse to overwrite existing evidence'
-    checkpoint_hash = hashlib.sha256(args.baseline_checkpoint.read_bytes()).hexdigest()
-    assert checkpoint_hash == args.expected_sha256, 'Wrong baseline checkpoint'
+    checkpoint_path = args.n23_only_checkpoint or args.baseline_checkpoint
+    checkpoint_hash = hashlib.sha256(checkpoint_path.read_bytes()).hexdigest()
+    assert checkpoint_hash == args.expected_sha256, 'Checkpoint hash mismatch'
     assert torch.cuda.is_available()
     torch.set_num_threads(4)
     torch.backends.cuda.matmul.allow_tf32 = False
     torch.backends.cudnn.allow_tf32 = False
     torch.backends.cudnn.benchmark = False
     torch.manual_seed(23)
+    if args.n23_only_checkpoint:
+        candidate = Net(scale=4).eval().cuda()
+        candidate.load_state_dict(torch.load(checkpoint_path, map_location='cpu', weights_only=True), strict=True)
+        initialized = [v for k, v in candidate.state_dict().items() if k.endswith('.initted')]
+        assert len(initialized) == 8 and all(bool(v.item()) for v in initialized)
+        report = {'purpose': 'N23_ONLY_RESOURCE_RECORD_NOT_COMPARISON_OR_PSNR',
+                  'checkpoint_sha256': checkpoint_hash,
+                  'environment': {'gpu': torch.cuda.get_device_name(0), 'torch': str(torch.__version__),
+                                  'cuda': torch.version.cuda, 'cudnn': torch.backends.cudnn.version()},
+                  'protocol': {'batch': 1, 'scale': 4, 'precision': 'FP32, TF32 off',
+                               'warmup': args.warmup, 'rounds': args.rounds, 'repeats': args.repeats,
+                               'geometry_cache': 'miss_every_forward' if args.cache_miss else 'warm_hit'},
+                  'decision': 'BASELINE_PENDING_NO_RELATIVE_RESOURCE_GATE', 'sizes': {}}
+        with torch.no_grad():
+            for height, width in ((64, 64), (128, 128), (96, 160)):
+                image = torch.rand(1, 3, height, width, device='cuda') * 255
+                rounds = [measure(candidate, image, args.warmup, args.repeats, args.cache_miss)
+                          for _ in range(args.rounds)]
+                wall = [v for row in rounds for v in row['wall_ms']]
+                report['sizes'][f'{height}x{width}'] = {
+                    'wall_median_ms': statistics.median(wall), 'wall_p90_ms': float(np.quantile(wall, .9)),
+                    'peak_allocated_bytes': max(row['peak_allocated_bytes'] for row in rounds),
+                    'raw_measurements': rounds}
+                del image
+        if args.output:
+            args.output.parent.mkdir(parents=True, exist_ok=True)
+            args.output.write_text(json.dumps(report, indent=2), encoding='utf-8')
+        print('RESULT_JSON '+json.dumps(report), flush=True)
+        return
     baseline = BaselineNet(scale=4).eval()
     state = torch.load(args.baseline_checkpoint, map_location='cpu', weights_only=True)
     baseline.load_state_dict(state, strict=True)

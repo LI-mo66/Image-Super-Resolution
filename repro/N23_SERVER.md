@@ -17,6 +17,28 @@ python -c 'import torch; print(torch.__version__, torch.version.cuda, torch.cuda
 
 不要浅克隆；旧B0审计需要完整Git历史。仓库不包含DIV2K和历史权重，它们必须留在原路径。若GPU有N16等任务，请另用专用实例，不要终止它们。
 
+## 先单独跑N23（2026-10-08用户新增授权）
+
+旧B0当前不可用，可以主动选择--n23-only。此模式不访问旧B0、不训练新B0，smoke也只更新N23一步；正式scratch40轮，其它训练字段不变。仍保存数据/source/environment指纹、40权重、40×100图指标，便于之后同协议合法比较。没有B0时不GO/NO_GO、不称完整配对筛查完成、不自动延长；目标服务器相对效率闸门待补，预检查只记录N23资源，不宣称相对通过。
+
+```bash
+cd /root/autodl-tmp/Image-Super-Resolution-N23
+git pull --ff-only origin codex/n23-hierarchical-scc
+git log -1 --oneline
+export DATA_ROOT=/root/autodl-tmp/datasets
+export OUTPUT="$PWD/experiment/all_runs/n23_only_40e_seed1_r1"
+nohup bash repro/run_n23_screen_server.sh \
+  --n23-only --data-root "$DATA_ROOT" --output "$OUTPUT" --run \
+  > n23_only_launcher.log 2>&1 < /dev/null &
+echo "后台PID=$!"
+tail -F n23_only_launcher.log
+# 完成后，无需打包
+cat "$OUTPUT/n23_epoch_metrics.csv"
+cat "$OUTPUT/n23_summary.json"
+```
+
+后台启动前核对答复中的commit；输出目录必须不存在。可选自动关机仍需显式--shutdown-on-success --dedicated-instance，单组结果完整后请求关机，不等待B0；报错不关机。只收集N23不意味着旧B0原始分数现在可以合法复用。
+
 ## 2. 旧B0审计（不训练、不创建实验输出）
 
 以下路径对应本对话此前服务器目录；按实际位置修改BASELINE/DATA_ROOT，不要填不存在的tar包。

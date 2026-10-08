@@ -23,6 +23,7 @@ def main():
     parser.add_argument('--data-root', type=Path, required=True)
     parser.add_argument('--output', type=Path, required=True)
     parser.add_argument('--cpu', action='store_true')
+    parser.add_argument('--n23-only', action='store_true', help='No B0 optimizer step or checkpoint')
     parsed = parser.parse_args()
     output = parsed.output.resolve()
     allowed = (ROOT / 'experiment' / 'all_runs').resolve()
@@ -42,6 +43,8 @@ def main():
             raise FileNotFoundError(data_root / relative)
     output.mkdir(parents=True)
     groups = {'b0': 'lfmn_exact_overlap', 'n23': 'lfmn_n23'}
+    if parsed.n23_only:
+        groups = {'n23': 'lfmn_n23'}
     for group, model_name in groups.items():
         command = [sys.executable, str(ROOT / 'repro/n23_train_entry.py'),
                    '--model', model_name, '--dir_data', str(data_root),
@@ -127,12 +130,14 @@ def main():
             del net, reloaded, raw, duplicate, quantized, state
             if not parsed.cpu:
                 torch.cuda.empty_cache()
-    for key in ('common_initial_state_sha256', 'retained_state_sha256', 'cpu_rng_sha256'):
-        assert proofs[0][key] == proofs[1][key], key
-    for key in ('lr_sha256', 'hr_sha256'):
-        assert batches[0][key] == batches[1][key], key
+    if not parsed.n23_only:
+        for key in ('common_initial_state_sha256', 'retained_state_sha256', 'cpu_rng_sha256'):
+            assert proofs[0][key] == proofs[1][key], key
+        for key in ('lr_sha256', 'hr_sha256'):
+            assert batches[0][key] == batches[1][key], key
     report = {'status': 'REAL_FRAMEWORK_SMOKE_PASS_NOT_ACCURACY_EVIDENCE',
-              'data_range': '1-2/859-859', 'device': str(device), 'groups': summaries}
+              'data_range': '1-2/859-859', 'device': str(device), 'groups': summaries,
+              'comparison': 'BASELINE_PENDING' if parsed.n23_only else 'ENGINEERING_PAIR_ONLY'}
     (output / 'summary.json').write_text(json.dumps(report, indent=2, allow_nan=False), encoding='utf-8')
     print(json.dumps(report, indent=2, allow_nan=False))
 

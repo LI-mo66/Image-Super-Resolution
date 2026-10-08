@@ -1,4 +1,4 @@
-"""Audited old B0 reuse, uniform re-evaluation, then one N23 scratch screen.
+"""Explicit paired screening or N23-only collection with baseline pending.
 
 Default is audit-only. No implicit B0 training, resume, overwrite or shutdown.
 """
@@ -220,8 +220,12 @@ def audit_baseline(directory, data, env):
 
 def run(cmd, logfile, cwd=ROOT, extra_env=None):
     print('RUN', ' '.join(map(str, cmd)), flush=True)
+    child_env = dict(os.environ)
+    for key in ('N23_BASELINE_MANIFEST', 'N23_PAIR_MANIFEST', 'N23_PROTOCOL_PROBE_ONLY'):
+        child_env.pop(key, None)
+    child_env.update({'PYTHONUNBUFFERED': '1', **(extra_env or {})})
     with logfile.open('w', encoding='utf-8') as stream:
-        child = subprocess.Popen(list(map(str, cmd)), cwd=cwd, env={**os.environ, 'PYTHONUNBUFFERED': '1', **(extra_env or {})},
+        child = subprocess.Popen(list(map(str, cmd)), cwd=cwd, env=child_env,
                                  stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
         for line in child.stdout:
             print(line, end='', flush=True)
@@ -261,15 +265,30 @@ def shutdown_command():
     return ['/bin/bash', str(helper)]
 
 
+def complete_run(path, manifest, poweroff, single=False):
+    manifest['status'] = 'COMPLETE_N23_ONLY_BASELINE_PENDING' if single else 'COMPLETE'
+    manifest['completed_utc'] = now()
+    write(path, manifest)
+    if poweroff:
+        if gpu_jobs():
+            raise RuntimeError('Other GPU jobs prevent shutdown; results retained')
+        manifest['status'] = 'COMPLETE_SHUTDOWN_REQUESTED'
+        write(path, manifest)
+        os.sync()
+        subprocess.run(poweroff, check=True)
+
+
 def main():
     ap = argparse.ArgumentParser(description=__doc__)
     baseline_choice = ap.add_mutually_exclusive_group(required=True)
     baseline_choice.add_argument('--baseline', type=Path, help='Old n21_n22.../b0 directory with parent manifest')
     baseline_choice.add_argument('--train-new-baseline', action='store_true',
                                  help='Explicit separate choice: train a new 40e B0; never automatic fallback')
+    baseline_choice.add_argument('--n23-only', action='store_true',
+                                 help='Only N23 40e; no old B0 access or B0 training; comparison pending')
     ap.add_argument('--data-root', type=Path, required=True)
     ap.add_argument('--output', type=Path, required=True)
-    ap.add_argument('--run', action='store_true', help='Launch selected mode: old B0 re-evaluation + N23 40e, or explicit new pair 2x40e')
+    ap.add_argument('--run', action='store_true', help='Launch selected mode: N23-only 40e, reused pair, or new pair 2x40e')
     ap.add_argument('--shutdown-on-success', action='store_true')
     ap.add_argument('--dedicated-instance', action='store_true')
     args = ap.parse_args()
@@ -292,9 +311,11 @@ def main():
     env = environment()
     if args.run and (gpu_jobs() or env['total_mib'] < 16 * 1024):
         raise RuntimeError('Use idle dedicated GPU with >=16GiB VRAM; recommend 24GiB')
-    print('Auditing all 1800 data files and old B0 provenance; no optimizer started', flush=True)
+    print('Auditing all 1800 data files; no optimizer started', flush=True)
     data = data_hashes(args.data_root)
-    audit = (audit_baseline(args.baseline, data, env) if args.baseline else
+    audit = (dict(status='BASELINE_PENDING', baseline_reuse='NOT_REQUESTED_N23_ONLY',
+                  threads=4, expected_config=expected_config(4)) if args.n23_only else
+             audit_baseline(args.baseline, data, env) if args.baseline else
              dict(status='NEW_BASELINE_EXPLICITLY_REQUESTED', baseline_reuse='NO_EXPLICIT_NEW_PAIR',
                   threads=4, expected_config=expected_config(4)))
     protocol = dict(mode='scratch', epochs=40, updates_per_epoch=1000, threads=audit['threads'],
@@ -314,14 +335,18 @@ def main():
                     baseline_audit=audit, data_hashes=data, environment=env, protocol=protocol,
                     data_root=str(args.data_root), output=str(args.output), started_utc=now(),
                     comparison_audit={'status': 'PENDING'}, shutdown_requested=bool(poweroff))
+    manifest['run_mode'] = 'N23_ONLY' if args.n23_only else 'PAIRED_SCREEN'
     write(path, manifest)
     try:
         # Target environment gates run in children: controller never owns CUDA.
         run([sys.executable, ROOT/'repro/check_n23.py', '--data', args.data_root/'DIV2K'], args.output/'engineering.log')
         run([sys.executable, ROOT/'repro/check_overlap_protocol.py', '--data', args.data_root/'DIV2K'], args.output/'overlap_protocol.log')
         run([sys.executable, ROOT/'repro/check_overlap_fast.py'], args.output/'overlap_fast.log')
-        run([sys.executable, ROOT/'repro/check_n23_smoke.py', '--data-root', args.data_root,
-             '--output', args.output/'smoke'], args.output/'smoke.log')
+        smoke = [sys.executable, ROOT/'repro/check_n23_smoke.py', '--data-root', args.data_root,
+                 '--output', args.output/'smoke']
+        if args.n23_only:
+            smoke.append('--n23-only')
+        run(smoke, args.output/'smoke.log')
         if args.baseline:
             smoke_proof = json.loads((args.output/'smoke/n23/initial_state_proof.json').read_text())
             assert smoke_proof['legacy_common_initial_state_sha256'] == audit['initial_state_sha256'], 'Old/new initial state mismatch; do not screen'
@@ -329,9 +354,11 @@ def main():
             probe[probe.index('--save')+1] = args.output/'protocol_probe'
             run(probe, args.output/'protocol_probe.log', ROOT/'LFMN', extra_env={
                 'N23_BASELINE_MANIFEST': str(path), 'N23_PROTOCOL_PROBE_ONLY': '1'})
-        efficiency_checkpoint = args.baseline/'model/model_40.pt' if args.baseline else args.output/'smoke/b0/model/model_1.pt'
+        efficiency_checkpoint = (args.output/'smoke/n23/model/model_1.pt' if args.n23_only else
+                                args.baseline/'model/model_40.pt' if args.baseline else args.output/'smoke/b0/model/model_1.pt')
         efficiency_hash = audit['checkpoint_sha256']['40'] if args.baseline else sha(efficiency_checkpoint)
-        run([sys.executable, ROOT/'repro/check_n23_efficiency.py', '--baseline-checkpoint',
+        run([sys.executable, ROOT/'repro/check_n23_efficiency.py',
+             '--n23-only-checkpoint' if args.n23_only else '--baseline-checkpoint',
              efficiency_checkpoint, '--expected-sha256', efficiency_hash,
              '--cache-miss', '--output', args.output/'efficiency/summary.json'], args.output/'efficiency.log')
         if gpu_jobs():
@@ -340,10 +367,18 @@ def main():
         write(path, manifest)
         if args.baseline:
             run([sys.executable, ROOT/'repro/evaluate_n23_b0.py', '--manifest', path], args.output/'b0_reeval.log')
-        manifest['status'] = 'SCREENING'
+        manifest['status'] = 'RUNNING_N23_ONLY_BASELINE_PENDING' if args.n23_only else 'SCREENING'
         write(path, manifest)
         run(training_command(args, audit['threads']), args.output/'n23_console.log', ROOT/'LFMN',
             extra_env={'N23_BASELINE_MANIFEST': str(path)} if args.baseline else None)
+        if args.n23_only:
+            audit_schedule(args.output/'n23')
+            assert source_hashes() == hashes and data_hashes(args.data_root) == data, 'Source/data changed during run'
+            manifest['comparison_audit'] = {'status': 'BASELINE_PENDING', 'n23_integrity': 'PASS'}
+            write(path, manifest)
+            run([sys.executable, ROOT/'repro/summarize_n23_only.py', args.output], args.output/'summary.log')
+            complete_run(path, manifest, poweroff, single=True)
+            return
         if not args.baseline:
             candidate_proof = json.loads((args.output/'n23/initial_state_proof.json').read_text())
             manifest['pair_reference'] = dict(kind='CURRENT_PAIR_DATAFLOW_NOT_OLD_BASELINE_REUSE',
@@ -380,15 +415,7 @@ def main():
                                         'old_weights_reassessed_on_same_current_device': bool(args.baseline)}
         write(path, manifest)
         run([sys.executable, ROOT/'repro/summarize_n23_screen.py', args.output], args.output/'summary.log')
-        manifest['status'], manifest['completed_utc'] = 'COMPLETE', now()
-        write(path, manifest)
-        if poweroff:
-            if gpu_jobs():
-                raise RuntimeError('Other GPU jobs prevent shutdown; results retained')
-            manifest['status'] = 'COMPLETE_SHUTDOWN_REQUESTED'
-            write(path, manifest)
-            os.sync()
-            subprocess.run(poweroff, check=True)
+        complete_run(path, manifest, poweroff)
     except BaseException as error:
         manifest.update(status='FAILED_NO_SHUTDOWN' if manifest['status'] != 'COMPLETE_SHUTDOWN_REQUESTED'
                         else 'COMPLETE_SHUTDOWN_FAILED', error=repr(error), ended_utc=now())

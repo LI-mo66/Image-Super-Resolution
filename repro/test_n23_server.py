@@ -1,6 +1,7 @@
 """Controller and scheduler contract tests; MOCKS ARE NOT SR RESULTS."""
 import json
 import math
+import os
 from pathlib import Path
 import subprocess
 import sys
@@ -63,7 +64,17 @@ class Contracts(unittest.TestCase):
         self.assertNotIn('--pre_train', command)
         self.assertNotIn('--load', command)
 
-    def queue(self, fail=False, launch=True):
+    def test_child_does_not_inherit_stale_private_references(self):
+        stale = dict(N23_BASELINE_MANIFEST='unavailable_old_file', N23_PAIR_MANIFEST='old_pair',
+                     N23_PROTOCOL_PROBE_ONLY='1')
+        with patch.dict(os.environ, stale), patch.object(server.subprocess, 'Popen') as popen:
+            popen.return_value.stdout = []
+            popen.return_value.wait.return_value = 0
+            server.run(['MOCK_COMMAND_NOT_EXECUTED'], self.root/'child.log')
+            env = popen.call_args.kwargs['env']
+            self.assertTrue(all(key not in env for key in stale))
+
+    def queue(self, fail=False, launch=True, single=False):
         output = self.root/'results'
         calls = []
         proof = dict(common_initial_state_sha256='fixture', retained_state_sha256='fixture', cpu_rng_sha256='fixture',
@@ -73,11 +84,16 @@ class Contracts(unittest.TestCase):
             parts = list(map(str, cmd))
             calls.append(parts)
             if any(p.endswith('check_n23_smoke.py') for p in parts):
-                cp = output/'smoke/b0/model/model_1.pt'
+                if single:
+                    self.assertIn('--n23-only', parts)
+                cp = output/('smoke/n23/model/model_1.pt' if single else 'smoke/b0/model/model_1.pt')
                 cp.parent.mkdir(parents=True)
                 cp.write_bytes(b'not weights: controller mock')
             if any(p.endswith('check_n23_efficiency.py') for p in parts) and fail:
                 raise subprocess.CalledProcessError(2, parts)
+            if single and any(p.endswith('check_n23_efficiency.py') for p in parts):
+                self.assertIn('--n23-only-checkpoint', parts)
+                self.assertNotIn('--baseline-checkpoint', parts)
             if '--model' in parts:
                 group = 'b0' if parts[parts.index('--model')+1] == 'lfmn_exact_overlap' else 'n23'
                 if group == 'b0':
@@ -86,7 +102,8 @@ class Contracts(unittest.TestCase):
                 directory.mkdir()
                 (directory/'initial_state_proof.json').write_text(json.dumps(proof))
                 (directory/'batch_fingerprints.jsonl').write_text('\n'.join(json.dumps(row) for row in batches))
-        argv = ['controller', '--train-new-baseline', '--data-root', str(self.root/'data'), '--output', str(output)]
+        argv = ['controller', '--n23-only' if single else '--train-new-baseline',
+                '--data-root', str(self.root/'data'), '--output', str(output)]
         if launch:
             argv.append('--run')
         env = dict(total_mib=24576, gpu='MOCK_NOT_HARDWARE')
@@ -98,6 +115,7 @@ class Contracts(unittest.TestCase):
                 patch.object(server.torch.cuda, 'is_available', return_value=True), \
                 patch.object(server.shutil, 'disk_usage', return_value=SimpleNamespace(free=10*1024**3)), \
                 patch.object(server, 'audit_schedule', return_value={'status': 'PASS'}), \
+                patch.object(server, 'audit_baseline', side_effect=AssertionError('Old B0 must not be read')), \
                 patch.object(server, 'run', side_effect=mocked_run):
             if fail:
                 with self.assertRaises(subprocess.CalledProcessError):
@@ -125,6 +143,63 @@ class Contracts(unittest.TestCase):
         self.assertEqual(manifest['status'], 'COMPLETE')
         self.assertEqual(manifest['comparison_audit']['status'], 'PASS')
         self.assertFalse(manifest['shutdown_requested'])
+
+    def test_n23_only_never_reads_or_trains_b0(self):
+        output, calls = self.queue(single=True)
+        self.assertEqual([cmd[cmd.index('--model')+1] for cmd in calls if '--model' in cmd], ['lfmn_n23'])
+        self.assertFalse((output/'b0').exists())
+        self.assertFalse((output/'smoke/b0').exists())
+        self.assertFalse(any(any(p.endswith('evaluate_n23_b0.py') for p in cmd) for cmd in calls))
+        manifest = json.loads((output/'manifest.json').read_text())
+        self.assertEqual(manifest['status'], 'COMPLETE_N23_ONLY_BASELINE_PENDING')
+        self.assertEqual(manifest['comparison_audit']['status'], 'BASELINE_PENDING')
+
+    def test_single_summary_never_claims_gain(self):
+        from summarize_n23_only import single_report
+        curves = torch.full((40, 1, 1), 28.)
+        report = single_report(curves, torch.full_like(curves, .8))
+        self.assertFalse(report['performance_claim'])
+        self.assertEqual(report['decision'], 'BASELINE_PENDING_NO_COMPARISON')
+        self.assertNotIn('final_delta', report)
+        with self.assertRaises(ValueError):
+            single_report(curves[:39], curves[:39])
+
+    def test_single_summary_file_contract_not_accuracy(self):
+        from summarize_n23_only import summarize
+        from summarize_n23_screen import trainer_float32_mean
+        group = self.root/'n23'
+        (group/'per_image_metrics').mkdir(parents=True)
+        (group/'model').mkdir()
+        protocol = dict(mode='scratch', epochs=40, overlap='exact_coverage_v1',
+                        expected_config=server.expected_config(4))
+        manifest = dict(run_mode='N23_ONLY', comparison_audit={'status': 'BASELINE_PENDING'},
+                        protocol=protocol, data_hashes={'MOCK': 'NOT_DATA'},
+                        commit='MOCK_NOT_EXPERIMENT', environment={'MOCK': True})
+        (self.root/'manifest.json').write_text(json.dumps(manifest))
+        (group/'config.txt').write_text('model: lfmn_n23\n' + '\n'.join(
+            f'{key}: {value}' for key, value in protocol['expected_config'].items()))
+        rows = [dict(dataset='DIV2K', scale=4, filename=f'{i:04d}', psnr=28.02, ssim=.8)
+                for i in range(801, 901)]
+        for metric in ('psnr', 'ssim'):
+            mean = trainer_float32_mean([row[metric] for row in rows])
+            torch.save(torch.full((40, 1, 1), mean), group/f'{metric}_log.pt')
+        mechanism = []
+        batches = []
+        for epoch in range(1, 41):
+            torch.save(rows, group/'per_image_metrics'/f'epoch_{epoch:04d}.pt')
+            torch.save({'MOCK_NOT_TRAINED_WEIGHTS': torch.zeros(1)}, group/'model'/f'model_{epoch}.pt')
+            mechanism.append(dict(epoch=epoch, updates=1000, total_updates=epoch*1000))
+            batches.append(dict(epoch=epoch))
+        for name, values in (('mechanism', mechanism), ('batch_fingerprints', batches)):
+            (group/f'{name}.jsonl').write_text('\n'.join(json.dumps(row) for row in values))
+        result = summarize(self.root)
+        self.assertFalse(result['performance_claim'])
+        self.assertEqual(result['decision'], 'BASELINE_PENDING_NO_COMPARISON')
+        self.assertEqual(len((self.root/'n23_epoch_metrics.csv').read_text().splitlines()), 41)
+        self.assertNotIn('final_delta', result)
+        (group/'model/model_40.pt').unlink()
+        with self.assertRaises(FileNotFoundError):
+            summarize(self.root)
 
 
 if __name__ == '__main__':
