@@ -53,10 +53,34 @@ def max_difference(a, b):
     return float((a-b).abs().max().detach())
 
 
+def deterministic_cumsum_supported(device):
+    """Capability probe, not a relaxed deterministic comparison.
+
+    Older CUDA/PyTorch rejects cumsum under strict determinism. In that case
+    audit the entire N23 overlap graph on CPU; retain all GPU primitive tests.
+    Normal production training is NOT put into strict deterministic mode.
+    """
+    enabled = torch.are_deterministic_algorithms_enabled()
+    warn_only = torch.is_deterministic_algorithms_warn_only_enabled()
+    try:
+        torch.use_deterministic_algorithms(True)
+        probe = torch.ones(4, 7, 7, device=device, requires_grad=True)
+        probe.cumsum(-2).cumsum(-1).sum().backward()
+        return True
+    except RuntimeError as error:
+        message = str(error)
+        if 'cumsum' in message and 'deterministic implementation' in message:
+            return False
+        raise
+    finally:
+        torch.use_deterministic_algorithms(enabled, warn_only=warn_only)
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument('--data', type=Path, required=True)
     ap.add_argument('--device', default='cuda')
+    ap.add_argument('--force-n23-cpu-audit', action='store_true', help='Exercise diagnostic CPU fallback; no training changes')
     args = ap.parse_args()
     torch.set_num_threads(4)
     torch.backends.cuda.matmul.allow_tf32 = False
@@ -120,10 +144,22 @@ def main():
     lr = torch.from_numpy(imageio.imread(lr_path).copy()).permute(2, 0, 1).float()[None, :, :64, :64]
     hr = torch.from_numpy(imageio.imread(hr_path).copy()).permute(2, 0, 1).float()[None, :, :256, :256]
     device = torch.device(args.device)
-    lr, hr = lr.to(device), hr.to(device)
+    lr_cpu, hr_cpu = lr, hr
+    supports_cumsum = deterministic_cumsum_supported(device) if device.type == 'cuda' else True
+    report['strict_cuda_cumsum_supported'] = supports_cumsum if device.type == 'cuda' else None
+    report['n23_cpu_audit_forced_for_testing'] = args.force_n23_cpu_audit
+    report['full_network_audit_devices'] = {}
     for label, factory in [('B0', BaselineNet), ('N23', CandidateNet)]:
+        audit_device = (torch.device('cpu') if label == 'N23' and
+                        (args.force_n23_cpu_audit or not supports_cumsum) else device)
+        lr, hr = lr_cpu.to(audit_device), hr_cpu.to(audit_device)
+        report['full_network_audit_devices'][label] = str(audit_device)
+        if label == 'N23' and audit_device != device:
+            report['n23_fallback_scope'] = ('Full overlap forward/input/parameter gradient equality on CPU; '
+                'GPU overlap primitives still checked; strict full-network GPU equality NOT claimed. '
+                'Normal N23 GPU checks/smoke remain mandatory in the server controller.')
         torch.manual_seed(7)
-        original = factory(scale=4).to(device)
+        original = factory(scale=4).to(audit_device)
         # Initialize original TAB buffers once on a real batch, no optimizer.
         with torch.no_grad():
             original.train()
@@ -161,7 +197,7 @@ def main():
         else:
             report['full_network'][label] = {'forward_max': 0, 'input_gradient_max': 0,
                                             'parameter_gradient_max': 0, 'status': 'BITWISE_PASS'}
-        if device.type == 'cuda':
+        if audit_device.type == 'cuda':
             # Diagnostic only: replay discrete cluster assignments, not detached
             # centers. IRCA's third center update is differentiable and its
             # original scatter/normalization gradient MUST be preserved.

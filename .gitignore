@@ -15,6 +15,11 @@
 /.venv/
 /LFMN/model/_str.txt
 
+# Generated N23 launch logs must not trip the clean-source preflight.
+/n23_only_launcher.log
+/n23_launcher.log
+/n23_newpair_launcher.log
+
 # The paper is retained locally; link to its publication instead of republishing it
 /LFMN.pdf
 /LFMN_paper_text.txt

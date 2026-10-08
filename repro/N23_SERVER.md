@@ -39,6 +39,8 @@ cat "$OUTPUT/n23_summary.json"
 
 后台启动前核对答复中的commit；输出目录必须不存在。可选自动关机仍需显式--shutdown-on-success --dedicated-instance，单组结果完整后请求关机，不等待B0；报错不关机。只收集N23不意味着旧B0原始分数现在可以合法复用。
 
+启动日志建议重定向到`/root/autodl-tmp/n23_only_launcher.log`而非仓库内。已在.gitignore登记原命令三个launcher文件，但其它未提交源码仍会阻止启动，不要reset源码绕过。PyTorch2.5严格CUDA cumsum诊断不支持时自动转CPU完整N23 overlap审计；正常GPU检查/smoke及7窗口GPU原始overlap检查保留。该诊断设备调整不改模型或正式训练，CPU证据不扩大为strict GPU完整等价。
+
 ## 2. 旧B0审计（不训练、不创建实验输出）
 
 以下路径对应本对话此前服务器目录；按实际位置修改BASELINE/DATA_ROOT，不要填不存在的tar包。
