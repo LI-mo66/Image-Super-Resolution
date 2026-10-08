@@ -1,5 +1,6 @@
 """Read-only engineering checks: no optimizer, training run or PSNR claim."""
 import argparse
+import copy
 import io
 import json
 from pathlib import Path
@@ -85,6 +86,8 @@ def main():
     baseline_rng = torch.get_rng_state().clone()
     torch.manual_seed(7)
     candidate = Net(scale=4)
+    assert all(block[1].normalize_overlap for block in candidate.blocks), \
+        'N23 must share exact coverage with the named corrected B0'
     assert torch.equal(torch.get_rng_state(), baseline_rng), 'data RNG changed'
     before, after = baseline.state_dict(), candidate.state_dict()
     common = {k for k in set(before) & set(after) if '.1.layer.0.fn.' not in k}
@@ -118,7 +121,26 @@ def main():
             overlap.append({'hw': [height, width], 'window': window,
                             'legacy_identity_error': float((legacy-ones).abs().max())})
     report['legacy_overlap_audit'] = overlap
-    overlap_failed = any(row['legacy_identity_error'] > 0 for row in overlap)
+    report['candidate_overlap_profile'] = 'exact_coverage_v1; legacy defects retained in audit only'
+    wrapper_errors = []
+    for index in range(4):
+        wrapper = copy.deepcopy(candidate.blocks[index][1]).cpu().double()
+        # Diagnostic zero attention/FFN: the residual reconstruction itself
+        # must be identity, including candidate padding and crop order.
+        wrapper.layer[0].fn.correlate = lambda tokens: torch.zeros_like(tokens)
+        with torch.no_grad():
+            for parameter in wrapper.layer[1].fn.parameters():
+                parameter.zero_()
+        x = torch.randn(1, 48, 33, 47, dtype=torch.float64, requires_grad=True)
+        result = wrapper(x, wrapper.window)
+        probe = torch.randn_like(result)
+        gradient = torch.autograd.grad((result*probe).sum(), x)[0]
+        error = float((result-x).abs().max().detach())
+        grad_error = float((gradient-probe).abs().max())
+        assert error < 1e-12 and grad_error < 1e-12
+        wrapper_errors.append({'window': wrapper.window, 'identity_max': error,
+                               'input_gradient_identity_max': grad_error})
+    report['corrected_wrapper_identity'] = wrapper_errors
 
     # Full Net has legacy ESA minimum sizes; tiny tests concern LRSA only.
     with torch.no_grad():
@@ -178,12 +200,9 @@ def main():
         assert error == 0, error
     report['strict_reload_max_error'] = error
     report['cuda_peak_allocated_bytes'] = torch.cuda.max_memory_allocated() if device.type == 'cuda' else None
-    report['status'] = ('GATE0_BLOCKED: inherited overlap reconstruction is not constant-preserving'
-                        if overlap_failed else 'PRECHECK_PASS')
+    report['status'] = 'GATE0_AND_BACKWARD_PRECHECK_PASS_WITH_EXACT_COVERAGE'
     report['unverified'] = ['optimizer smoke', 'AMP', 'target-server latency', 'PSNR benefit']
     print(json.dumps(report, indent=2), flush=True)
-    if overlap_failed:
-        raise SystemExit(2)
 
 
 if __name__ == '__main__':

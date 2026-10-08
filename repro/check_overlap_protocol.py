@@ -137,8 +137,8 @@ def main():
         fixed.train()
         x0 = lr.clone().requires_grad_(True)
         x1 = lr.clone().requires_grad_(True)
-        # Freeze stochastic center buffers by using identical initialized copies;
-        # the only intentional intervention is exact overlap averaging.
+        # Start with identical initialized center buffers; training still updates
+        # them. The only intentional production intervention is overlap averaging.
         y0, y1 = original(x0), fixed(x1)
         forward_error = max_difference(y0, y1)
         F.l1_loss(y0, hr).backward()

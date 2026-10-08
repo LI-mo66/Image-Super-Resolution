@@ -1,6 +1,6 @@
 """N23: replace LRSA spatial attention, not TAB or the reconstruction backbone.
 
-HiT-inspired SCC, with LFMN's PreNorm/FFN and legacy overlap reconstruction.
+HiT-inspired SCC, with LFMN's PreNorm/FFN and explicit exact coverage profile.
 This is a structural candidate; no accuracy improvement is implied.
 """
 import torch
@@ -56,8 +56,8 @@ class HierarchicalLRSA(nn.Module):
 
 
 class Net(BaselineNet):
-    def __init__(self, scale=4, **kwargs):
-        super().__init__(scale=scale, **kwargs)
+    def __init__(self, scale=4, normalize_overlap=True, **kwargs):
+        super().__init__(scale=scale, normalize_overlap=normalize_overlap, **kwargs)
         if len(self.blocks) != 8 or self.first_conv.out_channels != 48:
             raise ValueError('N23 fixes eight 48-channel stages')
         self.patch_size = [8, 16, 32, 64] * 2
