@@ -34,7 +34,7 @@ def resource_decision(sizes):
             else 'RESOURCE_GATE_FAIL_NO_TRAINING')
 
 
-def measure(net, image, warmup, repeats):
+def measure(net, image, warmup, repeats, cache_miss=False):
     for _ in range(warmup):
         output = net(image)
     synchronize()
@@ -47,6 +47,9 @@ def measure(net, image, warmup, repeats):
         start, end = torch.cuda.Event(enable_timing=True), torch.cuda.Event(enable_timing=True)
         synchronize()
         t0 = time.perf_counter()
+        if cache_miss:
+            for block in net.blocks:
+                block[1].fast_patches.clear_cache()
         start.record()
         output = net(image)
         end.record()
@@ -85,6 +88,8 @@ def main():
     ap.add_argument('--warmup', type=int, default=10)
     ap.add_argument('--repeats', type=int, default=30)
     ap.add_argument('--rounds', type=int, default=4)
+    ap.add_argument('--cache-miss', action='store_true',
+                    help='Rebuild geometry every timed forward, including CPU work and transfers')
     ap.add_argument('--expected-sha256', default='e428004505ec01364f60a0812c879b6ffd1fc08d013e48ffe81a22904927023b')
     ap.add_argument('--output', type=Path, help='New ignored experiment/all_runs JSON artifact')
     args = ap.parse_args()
@@ -125,6 +130,7 @@ def main():
               'protocol': {'batch': 1, 'scale': 4, 'warmup': args.warmup,
                            'repeats_per_round': args.repeats, 'rounds': args.rounds,
                            'order': 'b0/n23 then n23/b0 alternating',
+                           'geometry_cache': 'miss_every_forward' if args.cache_miss else 'warm_hit',
                            'overlap': 'exact_coverage_v1', 'gate_wall_limit': 1.10},
               'sizes': {}}
     raw_measurements = {}
@@ -139,7 +145,7 @@ def main():
                 for label in order:
                     net = models[label].cuda()
                     print(f'PROGRESS {height}x{width} round{round_index+1} {label}', flush=True)
-                    result = measure(net, image, args.warmup, args.repeats)
+                    result = measure(net, image, args.warmup, args.repeats, args.cache_miss)
                     measurements[label].append(result)
                     if round_index == args.rounds-1:
                         diagnostic[label] = phases(net, image)

@@ -10,6 +10,7 @@ from einops import rearrange
 
 from .lfmn import Net as BaselineNet, patch_divide, patch_reverse
 from .n23_scc import SCC
+from .overlap_fast import OrderedOverlap
 
 
 class SpatialLayer(nn.Module):
@@ -24,6 +25,8 @@ class HierarchicalLRSA(nn.Module):
         super().__init__()
         self.window = int(window)
         self.normalize_overlap = source.normalize_overlap
+        self.fast_patches = OrderedOverlap()
+        self.fast_eval_enabled = True
         self.layer = nn.ModuleList([
             SpatialLayer(source.layer[0].norm, self.window), source.layer[1]
         ])
@@ -40,15 +43,24 @@ class HierarchicalLRSA(nn.Module):
         # sorted content groups or arbitrarily isolated patch boundaries.
         projected = layer.fn.project_image(normed)
         step = ps - 2
-        qv, _, _ = patch_divide(projected, step, ps)
-        raw, _, _ = patch_divide(x, step, ps)
+        fast = (not self.training and not torch.is_grad_enabled()
+                and self.normalize_overlap and self.fast_eval_enabled)
+        if fast:
+            qv = self.fast_patches.extract(projected, ps)
+            raw = self.fast_patches.extract(x, ps)
+        else:
+            qv, _, _ = patch_divide(projected, step, ps)
+            raw, _, _ = patch_divide(x, step, ps)
         batch, count = qv.shape[:2]
         tokens = rearrange(qv, 'b n c h w -> (b n) (h w) c')
         response = layer.fn.correlate(tokens)
         response = rearrange(response, '(b n) (h w) c -> b n c h w',
                              b=batch, n=count, h=ps, w=ps)
-        result = patch_reverse(raw + response, x, step, ps,
-                               normalize_overlap=self.normalize_overlap)
+        if fast:
+            result = self.fast_patches.reverse(raw + response, x, ps)
+        else:
+            result = patch_reverse(raw + response, x, step, ps,
+                                   normalize_overlap=self.normalize_overlap)
         result = result[:, :, :height, :width].contiguous()
         tokens = rearrange(result, 'b c h w -> b (h w) c')
         tokens = tokens + ff(tokens, x_size=(height, width))
