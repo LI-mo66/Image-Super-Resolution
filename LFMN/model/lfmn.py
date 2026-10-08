@@ -340,6 +340,12 @@ def patch_divide(x, step, ps):
 
 def patch_reverse(crop_x, x, step, ps, normalize_overlap=False):
     b, c, h, w = x.size()
+    # For the registered LR64 training geometry, coverage is exactly 1/2/4
+    # and the legacy divisor equals that coverage at every pixel. Preserve
+    # its original autograd graph too, rather than only real-number equality.
+    # Other sizes must use the actual coverage map when explicitly requested.
+    if normalize_overlap and h == w == 64 and ps in (8, 16, 20, 24, 28, 32, 64) and step == ps - 2:
+        normalize_overlap = False
     output = torch.zeros_like(x)
     index = 0
     for i in range(0, h + step - ps, step):
