@@ -1,0 +1,6 @@
+interface:
+  display_name: "轻量超分模块融合审查"
+  short_description: "审查轻量超分模块融合的接口、梯度、优化与公平对照，积累可复核经验"
+  default_prompt: "使用 $sr-module-fusion-audit 审查指定超分骨架的新机制接入和实验结果，区分工程正确、信息利用与真实PSNR增益。"
+policy:
+  allow_implicit_invocation: true
