@@ -79,7 +79,11 @@ def main():
 
     torch.manual_seed(1)
     baseline = BaselineNet(scale=4)
+    torch.manual_seed(1)
     candidate = F1Net(scale=4)
+    for key, tensor in baseline.state_dict().items():
+        if not torch.equal(tensor, candidate.state_dict()[key]):
+            raise AssertionError('paired scratch initialization differs: ' + key)
     dynamic_module = import_module('model.lfmnf1')
     dynamic_candidate = dynamic_module.make_model(SimpleNamespace(scale=[4]))
     if not isinstance(dynamic_candidate, F1Net):
@@ -188,6 +192,7 @@ def main():
         'checkpoint_missing_keys': inherited.missing_keys,
         'checkpoint_unexpected_keys': inherited.unexpected_keys,
         'shared_checkpoint_element_coverage': 1.0,
+        'paired_scratch_initialization': True,
         'identity_at_zero_scale': True,
         'unit_scale_formula': True,
         'non_square_x4_shape': list(output.shape),

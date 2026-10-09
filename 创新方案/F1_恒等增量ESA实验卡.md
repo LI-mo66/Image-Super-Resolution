@@ -6,7 +6,7 @@
 候选编号（唯一）：F1
 候选名称：Identity-Preserved Delta ESA
 候选类型：结构
-当前状态：IMPLEMENTED
+当前状态：VERIFIED
 分支：codex/f1-identity-delta-esa
 共同基线分支/提交：本仓库原始LFMN；审查起点88bdc6a
 候选实现提交：17461e8
@@ -99,16 +99,16 @@ data_train: DIV2K
 data_range_train: 1-800（沿项目开发协议；启动前最终核对）
 data_range_validation: 801-900（独立验证集；启动前最终核对）
 scale: 4
-seed: 待锁定
-patch_size_hr: 待锁定
-batch_size: 待锁定
-optimizer: 待锁定
-learning_rate: 待锁定
+seed: 1
+patch_size_hr: 256
+batch_size: 4
+optimizer: Adam (betas=0.9,0.999; eps=1e-8; weight_decay=0)
+learning_rate: 0.0002
 scheduler: CosineAnnealingLR
 scheduler_horizon: 150
 epochs_planned: 150
 mandatory_pause_epoch: 20
-eta_min: 待锁定
+eta_min: 0.000001
 self_ensemble: false
 evaluation_datasets: [Set5, Set14, B100, Urban100, Manga109]
 ```
@@ -147,7 +147,7 @@ epoch20报告：固定epoch20 checkpoint；五benchmark分别列出，不做跨�
 1000 epoch：必须用户单独批准
 ```
 
-当前训练协议已部分锁定；seed、patch、batch、优化器、初始学习率和eta_min仍须在启动前登记。任何训练开始前必须先完成公共日志机制与Gate 2，不得直接启动20e。
+用户授权交付服务器运行包后，剩余运行参数按同协议开发默认值登记如上。独立入口为`repro/run_f1_screen_server.py`，实际训练入口为`repro/f1_train_entry.py`；启动时自动执行日志测试与Gate 2，不得绕过失败检查直接开始20e。参数和命令详见根目录`F1_服务器运行说明.md`。
 
 ## 12.1 实现验证记录
 
@@ -161,3 +161,11 @@ python repro/check_f1_identity_delta_esa.py --device auto
 结果：Baseline/F1参数量为759,627/759,635；官方x4 checkpoint SHA256严格匹配登记值，除新增`residual_scales`外无missing/unexpected keys，共享checkpoint元素覆盖率100%。零尺度严格返回旧状态，单位尺度严格符合登记公式；`1x3x31x35`输入得到`1x3x124x140`有限输出；八个尺度均获得有限非零梯度，ESA梯度非零；`--model LFMNF1`动态入口与候选checkpoint严格保存重载通过。
 
 本轮未运行真实数据、训练、PSNR/SSIM、FLOPs、延迟或峰值显存测试，所以状态保持`IMPLEMENTED`，尚不进入`VERIFIED`。原报告建议先D0再实现；用户本轮明确授权先实现并上传，因此只调整工程顺序，不改变D0与Gate 2仍需完成的事实。
+
+## 12.2 服务器包交付验证
+
+用户随后要求交付服务器代码，现新增父进程日志管理器、独立训练入口、B0/F1配对运行器、资源审计和服务器说明。公共`main.py/option.py/trainer.py`正在存在其他未提交日志开发，本包不依赖这些改动；使用共同基线提交的Git archive源码加本次文件进行隔离验证。
+
+Gate 2已通过：真实DIV2K 0001单batch（HR patch256、batch4）及0801验证，两组均成功保存模型/优化器/scheduler/随机流状态，并恢复到下一轮。完整训练/验证轨迹留在`experiment/f1_release_smoke/F1_pair_x4_seed1_20261009_142737_637491/`。两组共享初始state SHA256完全相同，恢复后的Cosine `T_max=150`和epoch连续性通过。实时stdout/stderr、独立目录防覆盖、受控异常Traceback、session追加及状态记录均通过。
+
+另以F1烟雾权重完成Set5测试-only链路，逐图文件正常保存；参数/FLOPs计数范围、LR64/128延迟和显存统计链路在本机通过。以上不是20e性能证据，尚未执行服务器20e、正式五benchmark比较或D0机制诊断。状态升级为`VERIFIED`只表示工程门槛通过，进入`SCREENING`以服务器实际启动为准。
