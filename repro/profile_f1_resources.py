@@ -15,6 +15,14 @@ from model.lfmn import Net as B0
 from model.lfmnf1 import Net as F1
 
 
+def count_forward_flops(net, sample):
+    # Keep counting outside inference_mode for dispatcher compatibility.
+    with torch.no_grad(), FlopCounterMode(display=False) as counter:
+        net(sample)
+    value = int(counter.get_total_flops())
+    return value if value > 0 else None
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('group', type=Path)
@@ -53,12 +61,12 @@ def main():
                     del output
                 peak_allocated = torch.cuda.max_memory_allocated() / 1024**2
                 peak_reserved = torch.cuda.max_memory_reserved() / 1024**2
-                with FlopCounterMode(display=False) as counter:
-                    net(sample)
+            counted_flops = count_forward_flops(net, sample)
             payload['results'][label + '_LR' + str(size)] = {
                 'parameters': sum(p.numel() for p in net.parameters()),
-                'counted_flops': counter.get_total_flops(),
-                'counted_multi_add_equivalent': counter.get_total_flops() / 2,
+                'counted_flops': counted_flops,
+                'counted_multi_add_equivalent': counted_flops / 2 if counted_flops is not None else None,
+                'flops_status': 'valid_supported_ops' if counted_flops is not None else 'invalid_zero_counter',
                 'median_ms': statistics.median(times),
                 'p90_ms': sorted(times)[44],
                 'peak_allocated_mib': peak_allocated, 'peak_reserved_mib': peak_reserved,

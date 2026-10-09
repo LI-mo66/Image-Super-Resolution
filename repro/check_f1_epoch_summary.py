@@ -45,6 +45,12 @@ def main():
             assert len(list(csv.DictReader(stream))) == 30
         report = (output / 'comparison.md').read_text(encoding='utf-8')
         assert 'Last five epoch mean delta set5_psnr: +0.050000' in report
+        resource = {'gpu': 'fixture', 'coverage_limit': 'fixture counter scope', 'results': {
+            'B0_LR64': dict(parameters=759627, counted_flops=0, median_ms=1.0,
+                           p90_ms=1.1, peak_allocated_mib=10.0, peak_reserved_mib=12.0)}}
+        (group / 'resources.json').write_text(json.dumps(resource), encoding='utf-8')
+        output = export(args)
+        assert 'invalid counter' in (output / 'comparison.md').read_text(encoding='utf-8')
         missing = group / 'F1_x4_seed1/per_image_metrics/epoch_0006.pt'
         missing.unlink()
         output = export(args)

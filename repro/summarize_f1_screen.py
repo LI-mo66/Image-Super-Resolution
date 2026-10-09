@@ -202,8 +202,14 @@ def export(args):
             for label in ('B0', 'F1'):
                 row = resource.get('results', {}).get(label + '_LR' + str(size))
                 if row:
-                    lines.append('| {} | {} | {} |'.format(size, label, ' | '.join(format_number(row[key]) for key in
-                                 ('parameters', 'counted_flops', 'median_ms', 'p90_ms', 'peak_allocated_mib', 'peak_reserved_mib'))))
+                    fields = []
+                    for key in ('parameters', 'counted_flops', 'median_ms', 'p90_ms', 'peak_allocated_mib', 'peak_reserved_mib'):
+                        value = row[key]
+                        if key == 'counted_flops' and (value is None or float(value) <= 0):
+                            fields.append('invalid counter')
+                        else:
+                            fields.append(format_number(value))
+                    lines.append('| {} | {} | {} |'.format(size, label, ' | '.join(fields)))
     else:
         lines.append('Pending resource profiling; no efficiency claim.')
     lines += ['', 'No average across benchmark datasets. No best-Set5 checkpoint comparison.']

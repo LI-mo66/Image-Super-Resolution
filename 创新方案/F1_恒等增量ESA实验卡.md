@@ -6,7 +6,7 @@
 候选编号（唯一）：F1
 候选名称：Identity-Preserved Delta ESA
 候选类型：结构
-当前状态：VERIFIED
+当前状态：DECIDED
 分支：codex/f1-identity-delta-esa
 共同基线分支/提交：本仓库原始LFMN；审查起点88bdc6a
 候选实现提交：17461e8
@@ -117,6 +117,10 @@ epoch_evaluation: [DIV2K, Set5]
 五个benchmark分别报告，不计算跨数据集宏平均。每个数据集仍按统一SR协议报告自身标准逐图均值，并保存逐图指标；Set5的五张图也全部列出。benchmark只评测固定端点或由独立验证集预先选定的checkpoint，不参与checkpoint选择。
 
 用户追加要求每轮Set5测试：每个epoch在DIV2K验证后运行Set5 OFF，保存数据集均值和五张逐图指标；Set5仅监控，不参与checkpoint选择。自动报告逐epoch的B0/F1差值、末5轮配对均值及固定epoch20五benchmark结果。已启动旧版实验可从保存的各轮checkpoint只读补测，不重训、不覆盖历史资产。
+
+## 9.1 用户服务器20e结果与决策
+
+2026-10-09收到用户服务器汇总，GPU为RTX4080 SUPER，固定epoch20、OFF。实际训练commit/config/权重SHA256仍待取得。DIV2K终点/末5轮Delta为-0.002048/-0.009954dB，Set5为-0.002237/-0.041545dB；五benchmark终点PSNR均未超过B0。Set5全部20轮落后，DIV2K只有3轮领先，未形成稳定增益。状态DECIDED：本轮20e不自动晋级，暂不续训150e，先做现有权重机制诊断与资源复核。详见根目录`F1_20e_结果审查.md`。这不是150e最终结论。
 
 ## 10. 基线复用决定
 
