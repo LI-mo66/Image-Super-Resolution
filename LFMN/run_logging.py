@@ -34,7 +34,7 @@ def launch(command, directory, config, cwd, resume=False):
     write_json(directory / 'config.json', config)
     metrics = directory / 'metrics.csv'
     if not metrics.exists():
-        metrics.write_text('epoch,learning_rate,train_loss,validation_psnr,validation_ssim,elapsed_seconds\n', encoding='utf-8')
+        metrics.write_text('epoch,learning_rate,train_loss,validation_psnr,validation_ssim,elapsed_seconds,set5_psnr,set5_ssim\n', encoding='utf-8')
     env = dict(os.environ, PYTHONUNBUFFERED='1', PYTHONIOENCODING='utf-8',
                TQDM_MININTERVAL='5', LFMN_MANAGED_RUN=str(directory))
     process = None
@@ -131,9 +131,24 @@ def record_epoch(trainer, loader, directory, learning_rate, elapsed):
         raise FloatingPointError('non-finite epoch loss or validation metric')
     path = directory / 'metrics.csv'
     with path.open(encoding='utf-8') as stream:
-        rows = list(csv.DictReader(stream))
+        reader = csv.DictReader(stream)
+        columns = reader.fieldnames
+        rows = list(reader)
     if rows and int(rows[-1]['epoch']) >= epoch:
         raise ValueError('metrics epoch would duplicate or overwrite history')
+    set5_psnr, set5_ssim = '', ''
+    if 'Set5' in trainer.args.data_test:
+        image_metrics = torch.load(
+            directory / 'per_image_metrics' / ('epoch_{:04d}.pt'.format(epoch)),
+            map_location='cpu', weights_only=True,
+        )
+        set5_rows = [row for row in image_metrics if row['dataset'] == 'Set5' and row['scale'] == 4]
+        if len(set5_rows) != 5 or len({row['filename'] for row in set5_rows}) != 5:
+            raise ValueError('Set5 epoch report requires five distinct x4 images')
+        set5_psnr = sum(row['psnr'] for row in set5_rows) / 5
+        set5_ssim = sum(row['ssim'] for row in set5_rows) / 5
+        if not np.isfinite(set5_psnr) or not np.isfinite(set5_ssim):
+            raise FloatingPointError('non-finite Set5 metrics')
     state = dict(epoch=epoch, python=random.getstate(), numpy=np.random.get_state(),
                  torch=torch.get_rng_state(),
                  cuda=torch.cuda.get_rng_state_all() if torch.cuda.is_available() else [],
@@ -142,7 +157,13 @@ def record_epoch(trainer, loader, directory, learning_rate, elapsed):
     torch.save(state, temporary)
     temporary.replace(directory / 'resume_state.pt')
     with path.open('a', newline='', encoding='utf-8') as stream:
-        csv.writer(stream).writerow([epoch, learning_rate, loss, psnr, ssim, elapsed])
+        row = dict(epoch=epoch, learning_rate=learning_rate, train_loss=loss,
+                   validation_psnr=psnr, validation_ssim=ssim, elapsed_seconds=elapsed,
+                   set5_psnr=set5_psnr, set5_ssim=set5_ssim)
+        csv.DictWriter(stream, fieldnames=columns, extrasaction='ignore').writerow(row)
         stream.flush()
     print('EPOCH_RECORD epoch={} loss={} validation_PSNR={} SSIM={} checkpoint={}'.format(
         epoch, loss, psnr, ssim, directory / 'model' / ('model_{}.pt'.format(epoch))), flush=True)
+    if set5_psnr != '':
+        print('SET5_EPOCH epoch={} PSNR={:.9f} SSIM={:.9f} (monitor only)'.format(
+            epoch, set5_psnr, set5_ssim), flush=True)

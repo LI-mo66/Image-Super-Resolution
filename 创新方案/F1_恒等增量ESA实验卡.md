@@ -111,9 +111,12 @@ mandatory_pause_epoch: 20
 eta_min: 0.000001
 self_ensemble: false
 evaluation_datasets: [Set5, Set14, B100, Urban100, Manga109]
+epoch_evaluation: [DIV2K, Set5]
 ```
 
 五个benchmark分别报告，不计算跨数据集宏平均。每个数据集仍按统一SR协议报告自身标准逐图均值，并保存逐图指标；Set5的五张图也全部列出。benchmark只评测固定端点或由独立验证集预先选定的checkpoint，不参与checkpoint选择。
+
+用户追加要求每轮Set5测试：每个epoch在DIV2K验证后运行Set5 OFF，保存数据集均值和五张逐图指标；Set5仅监控，不参与checkpoint选择。自动报告逐epoch的B0/F1差值、末5轮配对均值及固定epoch20五benchmark结果。已启动旧版实验可从保存的各轮checkpoint只读补测，不重训、不覆盖历史资产。
 
 ## 10. 基线复用决定
 

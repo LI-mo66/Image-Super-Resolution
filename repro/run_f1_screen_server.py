@@ -20,7 +20,8 @@ PROTOCOL = dict(scale=4, seed=1, patch_size=256, batch_size=4, optimizer='ADAM',
                 planned_epochs=150, stop_epoch=20, test_every=1000,
                 data_range='1-800/801-900', loss='1*L1', self_ensemble=False,
                 pretrained_checkpoint=None, weight_ema=False,
-                tab_centroid_ema=True, precision='single', rgb_range=255)
+                tab_centroid_ema=True, precision='single', rgb_range=255,
+                epoch_evaluation=['DIV2K', 'Set5'], checkpoint_selection='fixed epoch20')
 
 
 def git(*args):
@@ -64,7 +65,7 @@ def check_data(root):
 def train_command(args, directory, model, smoke=False, resume_epoch=0, stop_epoch=20):
     command = [sys.executable, '-u', str(ROOT / 'repro/f1_train_entry.py'),
                '--dir_data', str(args.data_root), '--model', model,
-               '--data_train', 'DIV2K', '--data_test', 'DIV2K',
+               '--data_train', 'DIV2K', '--data_test', 'DIV2K+Set5',
                '--data_range', '1-1/801-801' if smoke else PROTOCOL['data_range'],
                '--scale', '4', '--patch_size', '256',
                '--batch_size', '4', '--n_threads', str(args.workers),
@@ -260,6 +261,8 @@ def main():
         directory = group / ('resource_audit_' + datetime.datetime.now().strftime('%Y%m%d_%H%M%S_%f'))
         command = [sys.executable, str(ROOT / 'repro/profile_f1_resources.py'), str(group)]
         launch(command, directory, {'kind': 'resource_audit', 'git_commit': git('rev-parse', 'HEAD')}, ROOT)
+    subprocess.run([sys.executable, str(ROOT / 'repro/summarize_f1_screen.py'),
+                    str(group)], cwd=ROOT, check=True)
 
 
 if __name__ == '__main__':
