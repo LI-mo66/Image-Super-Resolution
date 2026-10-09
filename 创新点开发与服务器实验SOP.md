@@ -464,6 +464,8 @@ unverified claims:
 
 烟雾测试数值不作为性能结果。
 
+此外必须按根目录`深度学习训练日志管理规范.md`完成日志烟雾测试：终端与`train_log.txt`同步可见，`config.json`和`metrics.csv`可解析，两次运行不覆盖，受控异常保留完整traceback，恢复训练的session、checkpoint和起始epoch可追溯。任一项失败时不得进入Gate 3。
+
 ### Gate 3：短筛
 
 先运行B0与M1。常见检查点：
@@ -526,7 +528,19 @@ git status --short
 
 若检查脚本失败，不得开始付费长训。
 
-### 7.3 后台运行
+### 7.3 训练日志强制门槛
+
+服务器训练入口必须自动创建包含方案名、倍率、seed和启动时间的独立运行目录，并生成：
+
+```text
+train_log.txt
+config.json
+metrics.csv
+```
+
+日志必须实时镜像完整stdout/stderr且不取消终端输出，具体字段、异常处理、恢复语义和验证项目遵守根目录`深度学习训练日志管理规范.md`。现有`log.txt`、`config.txt`或外层`nohup > launcher.log 2>&1`只能作为兼容文件或启动器备份，不能替代上述强制文件。未通过日志烟雾测试时，Baseline与候选均不得开始付费训练。
+
+### 7.4 后台运行
 
 ```bash
 nohup env \
@@ -542,7 +556,7 @@ echo $!
 
 `nohup`日志、组内`console.log`和框架生成的`log.txt/.pt`都必须保留。
 
-### 7.4 实时监控
+### 7.5 实时监控
 
 ```bash
 tail -F n10_screen_launcher.log
@@ -552,7 +566,7 @@ pgrep -af "run_n10|python main.py"
 
 按`Ctrl+C`只停止查看，不停止后台训练。
 
-### 7.5 自动关机
+### 7.6 自动关机
 
 AutoDL可在包装脚本末尾使用：
 
