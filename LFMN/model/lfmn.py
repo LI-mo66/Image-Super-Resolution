@@ -461,7 +461,10 @@ class Net(nn.Module):
                     dim, qk_dim, mlp_dim, heads,
                     normalize_overlap=normalize_overlap,
                 )]))
-            self.mid_convs.append(nn.Conv2d(dim, dim, 3, 1, 1))
+            self.mid_convs.append(nn.Sequential(
+                nn.Conv2d(dim, dim, 3, 1, 1, groups=dim),
+                nn.Conv2d(dim, dim, 1, 1, 0),
+            ))
         self.patch_size = patch_size
         if self.scale == 4:
             # x4: two-stage upsampling (upconv1 -> PixelShuffle(2) -> upconv2 -> PixelShuffle(2))
