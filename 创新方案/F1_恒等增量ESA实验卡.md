@@ -86,16 +86,43 @@
 
 ## 9. 基线协议指纹
 
-正式训练协议尚未获批。已锁定开发倍率为x4、Self-Ensemble关闭、B0与F1使用同一数据与150 epoch Cosine时间轴；其余字段必须在训练前补齐，未知字段不得推断。
+2026-10-09用户锁定以下开发协议：
+
+```yaml
+baseline_id: F1-B0-COS150-SCRATCH
+source_commit: 待训练入口提交后登记
+baseline_model: LFMN
+candidate_model: LFMNF1
+initialization: scratch
+pretrained_checkpoint: null
+data_train: DIV2K
+data_range_train: 1-800（沿项目开发协议；启动前最终核对）
+data_range_validation: 801-900（独立验证集；启动前最终核对）
+scale: 4
+seed: 待锁定
+patch_size_hr: 待锁定
+batch_size: 待锁定
+optimizer: 待锁定
+learning_rate: 待锁定
+scheduler: CosineAnnealingLR
+scheduler_horizon: 150
+epochs_planned: 150
+mandatory_pause_epoch: 20
+eta_min: 待锁定
+self_ensemble: false
+evaluation_datasets: [Set5, Set14, B100, Urban100, Manga109]
+```
+
+五个benchmark分别报告，不计算跨数据集宏平均。每个数据集仍按统一SR协议报告自身标准逐图均值，并保存逐图指标；Set5的五张图也全部列出。benchmark只评测固定端点或由独立验证集预先选定的checkpoint，不参与checkpoint选择。
 
 ## 10. 基线复用决定
 
 ```text
-Baseline reuse：待D0诊断和正式训练协议确认
-复用的baseline ID：待定
-逐字段比较结果：未执行
-已知差异：模型更新公式与参数数目不同
-为何差异不影响或为何必须重训：F1不能以官方LFMN checkpoint的零训练输出作为性能证据；从零训练或微调均需要同起点、同预算B0
+Baseline reuse：NO
+复用的baseline ID：无
+逐字段比较结果：B0与F1均按本卡协议从零训练
+已知差异：只允许模型更新公式与新增8个标量不同
+为何必须重训：用户明确要求两组从零训练；历史checkpoint和其它调度时间轴均不作为本轮B0
 ```
 
 ## 11. 最小实验矩阵
@@ -113,12 +140,14 @@ Baseline reuse：待D0诊断和正式训练协议确认
 Gate 0：参数、键覆盖、公式恒等旁路、shape、严格保存重载
 Gate 1：有限输出/梯度、alpha与ESA梯度非零、优化器覆盖
 Gate 2：真实单batch训练、验证、保存重载；同时通过强制日志测试
-Gate 3：B0/F1同seed、同batch流、同Cosine T_max=150的20e配对快筛
+Gate 3：B0/F1同seed、同batch流、同Cosine T_max=150启动计划150e训练，在epoch20保存完整状态并强制暂停
+epoch20报告：固定epoch20 checkpoint；五benchmark分别列出，不做跨数据集平均；Self-Ensemble OFF
+继续条件：用户审阅epoch20训练/验证曲线、末5轮、五benchmark逐项结果和资源成本后明确批准
 短筛/150e判定：沿用F系列研究审查报告预注册阈值
 1000 epoch：必须用户单独批准
 ```
 
-当前授权只到代码实现和低成本工程验证，不包含训练或benchmark性能评测。
+当前训练协议已部分锁定；seed、patch、batch、优化器、初始学习率和eta_min仍须在启动前登记。任何训练开始前必须先完成公共日志机制与Gate 2，不得直接启动20e。
 
 ## 12.1 实现验证记录
 
