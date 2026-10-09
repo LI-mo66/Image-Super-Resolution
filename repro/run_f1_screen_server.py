@@ -13,6 +13,7 @@ import sys
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / 'LFMN'))
 from run_logging import launch, write_json
+from source_provenance import provenance
 
 BENCHMARKS = {'Set5': 5, 'Set14': 14, 'B100': 100, 'Urban100': 100, 'Manga109': 109}
 PROTOCOL = dict(scale=4, seed=1, patch_size=256, batch_size=4, optimizer='ADAM',
@@ -25,6 +26,8 @@ PROTOCOL = dict(scale=4, seed=1, patch_size=256, batch_size=4, optimizer='ADAM',
 
 
 def git(*args):
+    if not (ROOT / '.git').exists() and args == ('rev-parse', 'HEAD'):
+        return provenance(ROOT)['git_commit']
     return subprocess.check_output(['git', *args], cwd=ROOT, text=True).strip()
 
 
@@ -86,13 +89,13 @@ def train_command(args, directory, model, smoke=False, resume_epoch=0, stop_epoc
 
 def config(args, model, command, **extra):
     import torch
+    source = provenance(ROOT)
     result = dict(PROTOCOL, model=model, command=command, cwd=str(ROOT / 'LFMN'),
                 dataset='DIV2K', validation='DIV2K 801-900',
                 data_root=str(args.data_root), workers=args.workers,
                 augmentation=True, gpu_name='CPU' if args.cpu else torch.cuda.get_device_name(0),
                 torch_version=torch.__version__, cuda_version=torch.version.cuda,
-                git_commit=git('rev-parse', 'HEAD'), git_dirty=bool(git('status', '--porcelain')),
-                git_diff_summary=git('diff', '--stat'),
+                **source,
                 source_sha256=source_hashes(),
                 metric_protocol='utility.py; quantize255; DIV2K RGB/crop10; benchmark PSNR Y BT601-256/crop4; SSIM MATLAB Y/crop4',
                 **extra)

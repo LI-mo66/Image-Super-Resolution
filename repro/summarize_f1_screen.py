@@ -8,11 +8,11 @@ import json
 import math
 from pathlib import Path
 import sys
-import subprocess
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / 'LFMN'))
 from run_logging import launch, write_json
+from source_provenance import provenance
 
 
 def read_epochs(directory):
@@ -73,7 +73,7 @@ def backfill(args, output, label, epoch):
            'source_epoch': epoch, 'source_checkpoint': str(source),
            'self_ensemble': False, 'source_run_config': str(source.parents[1] / 'config.json'),
            'checkpoint_selection': 'all saved completed epochs; monitoring only',
-           'git_commit': subprocess.check_output(['git', 'rev-parse', 'HEAD'], cwd=ROOT, text=True).strip(),
+           **provenance(ROOT),
            'torch_version': torch.__version__,
            'gpu_name': 'CPU' if args.cpu else torch.cuda.get_device_name(0),
            'metric_source_sha256': hashlib.sha256((ROOT / 'LFMN/utility.py').read_bytes()).hexdigest(),
