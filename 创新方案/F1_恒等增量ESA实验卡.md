@@ -6,10 +6,10 @@
 候选编号（唯一）：F1
 候选名称：Identity-Preserved Delta ESA
 候选类型：结构
-当前状态：APPROVED
+当前状态：IMPLEMENTED
 分支：codex/f1-identity-delta-esa
 共同基线分支/提交：本仓库原始LFMN；审查起点88bdc6a
-候选实现提交：待实现后登记
+候选实现提交：17461e8
 负责人/AI：Codex
 日期：2026-10-09
 ```
@@ -119,3 +119,16 @@ Gate 3：B0/F1同seed、同batch流、同Cosine T_max=150的20e配对快筛
 ```
 
 当前授权只到代码实现和低成本工程验证，不包含训练或benchmark性能评测。
+
+## 12.1 实现验证记录
+
+2026-10-09使用`E:\anaconda\envs\dl\python.exe`与RTX 4060 Laptop GPU运行：
+
+```text
+python -m py_compile LFMN/model/lfmnf1.py repro/check_f1_identity_delta_esa.py
+python repro/check_f1_identity_delta_esa.py --device auto
+```
+
+结果：Baseline/F1参数量为759,627/759,635；官方x4 checkpoint SHA256严格匹配登记值，除新增`residual_scales`外无missing/unexpected keys，共享checkpoint元素覆盖率100%。零尺度严格返回旧状态，单位尺度严格符合登记公式；`1x3x31x35`输入得到`1x3x124x140`有限输出；八个尺度均获得有限非零梯度，ESA梯度非零；`--model LFMNF1`动态入口与候选checkpoint严格保存重载通过。
+
+本轮未运行真实数据、训练、PSNR/SSIM、FLOPs、延迟或峰值显存测试，所以状态保持`IMPLEMENTED`，尚不进入`VERIFIED`。原报告建议先D0再实现；用户本轮明确授权先实现并上传，因此只调整工程顺序，不改变D0与Gate 2仍需完成的事实。
