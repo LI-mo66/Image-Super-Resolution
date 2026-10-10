@@ -13,6 +13,7 @@ FILES = ['LFMN', 'repro/run_f1_screen_server.py', 'repro/f1_train_entry.py',
          'repro/check_f1_identity_delta_esa.py', 'repro/check_training_run_logging.py',
          'repro/profile_f1_resources.py', 'repro/summarize_f1_screen.py',
          'repro/check_f1_epoch_summary.py', 'F1_服务器运行说明.md']
+FILES += ['repro/diagnose_f1_20e.py', 'repro/check_f1_diagnostic.py', 'F1_20e_服务器只读诊断说明.md']
 
 
 def main():
