@@ -22,7 +22,7 @@ git fetch origin
 git switch --detach origin/codex/p0-lfmn-diagnostics
 git log -1 --oneline
 python -c "import torch,cv2,PIL,numpy,einops,matplotlib; print(torch.__version__); print(torch.cuda.get_device_name(0))"
-python repro/run_p_server.py --plan --data-root /实际数据根目录 --gpus 0
+python repro/run_p_server.py --plan --data-root /root/autodl-tmp/datasets --gpus 0
 ```
 
 数据根目录应包含 `DIV2K/DIV2K_valid_HR`、`DIV2K/DIV2K_valid_LR_bicubic/X4` 和 `benchmark/{Set5,Set14,B100,Urban100,manga109}/{HR,LR_bicubic/X4}`。支持 Manga109 大写目录见下方约定。使用官方三个权重文件 `LFMN/model/scale2_model_996.pt`、`scale3_model_969.pt`、`scale4_model_939.pt`，运行自动记录SHA256并strict加载。历史权重训练seed、优化器及源提交未知；只复用冻结推理，不能当训练曲线基线。
@@ -34,13 +34,13 @@ python repro/run_p_server.py --plan --data-root /实际数据根目录 --gpus 0
 单GPU：
 
 ```bash
-python -u repro/run_p_server.py --data-root /实际数据根目录 --gpus 0
+python -u repro/run_p_server.py --data-root /root/autodl-tmp/datasets --gpus 0
 ```
 
 两张空闲GPU：
 
 ```bash
-python -u repro/run_p_server.py --data-root /实际数据根目录 --gpus 0 1
+python -u repro/run_p_server.py --data-root /root/autodl-tmp/datasets --gpus 0 1
 ```
 
 每张指定GPU最多一个子进程，同一GPU的任务排队。GPU号必须是当前可分配的物理GPU ID，启动器通过CUDA_VISIBLE_DEVICES隔离。它不替你检查其他用户训练的占用；运行前用nvidia-smi确认空闲。不自动关机，不修改服务器环境，不启动训练。
@@ -54,7 +54,7 @@ python -u repro/run_p_server.py --data-root /实际数据根目录 --gpus 0 1
 先建立原模型×2/×3/×4完整成绩；本轮不在五benchmark反复挑干预参数。
 
 ```bash
-python -u repro/run_p_server.py --mode benchmark --schemes P0 --scales 2 3 4 --data-root /实际数据根目录 --gpus 0
+python -u repro/run_p_server.py --mode benchmark --schemes P0 --scales 2 3 4 --data-root /root/autodl-tmp/datasets --gpus 0
 ```
 
 多GPU可传`--gpus 0 1 2`，按倍率分配独立进程。原图无chop、无自集成；若大图OOM保留失败，不临时修改某组裁块或chop后继续比较。单卡建议先按默认×4裁块诊断确认环境，再做全量评测。脚本不假定全图适合每台服务器显存。
@@ -89,3 +89,10 @@ summary_x4.md
 ## 下一阶段
 
 收到真实诊断结果后再定位要修改的唯一机制，明确可证伪假设、独立结构实现、统一B0训练协议、短筛预算和停止线。训练前必须通过《深度学习训练日志管理规范.md》的日志烟雾；本轮推理日志不等于训练日志规范已满足。
+
+
+## 2026-10-10：AutoDL数据位置约定
+
+用户说明数据位于autodl-tmp下面。启动器默认依次检查 `/root/autodl-tmp/dataset`、`/root/autodl-tmp/datasets`、`/root/autodl-tmp`，选取同时包含DIV2K和benchmark的目录；不移动或重新生成数据。也可显式使用--data-root。若均不存在，在真实任务开始前报数据缺失，不能悄悄换数据。
+
+在新隔离服务器仓库 `/root/autodl-tmp/Image-Super-Resolution-P` 拉取P0分支，先git fetch origin，再用run_p_server.py --plan检查；实际任务可nohup后台启动，launcher自己的日志和子任务指标持续写入experiment。运行用当前已配置的PyTorch环境python，不自动安装或升级依赖。单GPU --gpus 0，多GPU可明确指定 --gpus 0 1。

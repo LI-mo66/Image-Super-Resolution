@@ -21,6 +21,15 @@ PLUGINS = {'P1': 'repro/p1_sfml_probe.py', 'P2': 'repro/p2_iasa_probe.py'}
 WEIGHTS = {2: 'scale2_model_996.pt', 3: 'scale3_model_969.pt', 4: 'scale4_model_939.pt'}
 
 
+def default_data_root():
+    candidates = [Path('/root/autodl-tmp/dataset'), Path('/root/autodl-tmp/datasets'),
+                  Path('/root/autodl-tmp')]
+    for path in candidates:
+        if (path / 'DIV2K').is_dir() and (path / 'benchmark').is_dir():
+            return path
+    return Path('/root/autodl-tmp/datasets')
+
+
 def git(*arguments):
     return subprocess.check_output(['git', *arguments], cwd=ROOT, text=True).strip()
 
@@ -85,7 +94,7 @@ def prepare(plan):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--python', default=sys.executable)
-    parser.add_argument('--data-root', type=Path, default=ROOT / 'datasets')
+    parser.add_argument('--data-root', type=Path, default=default_data_root())
     parser.add_argument('--gpus', nargs='+', default=['0'])
     parser.add_argument('--scales', nargs='+', type=int, choices=(2, 3, 4), default=[4])
     parser.add_argument('--schemes', nargs='+', choices=('P0', 'P1', 'P2'), default=['P0', 'P1', 'P2'])
