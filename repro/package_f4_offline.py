@@ -11,7 +11,7 @@ def main():
     commit=subprocess.check_output(['git','rev-parse','HEAD'],cwd=ROOT,text=True).strip()
     files=['LFMN','requirements-server.txt','repro/run_f1_screen_server.py','repro/check_training_run_logging.py',
         'repro/run_f4_screen_server.py','repro/f4_train_entry.py','repro/check_f4.py',
-        'repro/profile_f4_resources.py','repro/summarize_f4_screen.py','repro/run_f4_nohup.sh','repro/shutdown_f4_completed_run.py','F4_服务器运行说明.md']
+        'repro/backfill_f4_set5.py','repro/profile_f4_resources.py','repro/summarize_f4_screen.py','repro/run_f4_nohup.sh','repro/shutdown_f4_completed_run.py','F4_服务器运行说明.md']
     data=subprocess.check_output(['git','archive','--format=zip',commit,'--',*files],cwd=ROOT)
     out=ROOT/'experiment/offline_packages';out.mkdir(parents=True,exist_ok=True)
     target=out/('F4_server_'+commit[:7]+'.zip');prefix='Image-Super-Resolution-F4/'
