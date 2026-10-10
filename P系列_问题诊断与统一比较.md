@@ -17,7 +17,7 @@
 - LR区域：固定归一化Sobel/8，5×5均值结构张量，energy≥1e-4，coherence≥.7为单方向边缘，<.3为多方向；其余单列。不能从这些掩码识别规则周期纹理或宣称全部“复杂纹理”。
 - P1四个全阶段干预预先固定，不逐图选符号或在五benchmark调参；排序变化率不是聚类成员变化率。
 - P2固定阶段0/3/7，每阶段24个均匀原始像素query；attention质量必须和同一候选集等权组成比较；跨标签、重复槽位和唯一源像素分别报告。
-- 本机单张RTX4060 Laptop 8GB，GPU forward排队；CPU源码审计、检查和汇总可并行。日志、权重、JSON、CSV保存在ignored experiment，不提交Git。
+- 用户指定本机只准备检查提交，服务器执行实际诊断。服务器多GPU支持并行，每张GPU最多一进程；单GPU排队；CPU源码审计、检查和汇总可并行。日志、权重、JSON、CSV保存在ignored experiment，不提交Git。
 - 未开始训练；任何结构实现/短筛须按SOP新卡及独立分支、完整训练协议、基线复用决定、训练日志烟雾。诊断完成不等于进入SCREENING。
 
 ## 固定评测口径
@@ -28,7 +28,7 @@ PSNR：SR RGB255 clamp/round，Y差值系数[65.738,129.057,25.064]/256，HR裁�
 
 ## 运行
 
-使用 `E:/anaconda/envs/dl/python.exe`。各分支运行自己的 `repro/run_p_diagnostics.py`。
+以下为单入口接口示例，不在本机执行真实数据。服务器统一拉取/调度命令见《P系列_服务器执行说明.md》。各分支运行自己的 `repro/run_p_diagnostics.py`。
 
 ```powershell
 # P0 首轮预注册裁块诊断

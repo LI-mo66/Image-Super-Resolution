@@ -127,13 +127,16 @@ def pairs(args):
                            'selection' if image_id <= 804 else 'inspection'))
     if args.benchmarks != 'none':
         for dataset in ('Set5', 'Set14', 'B100', 'Urban100', 'manga109'):
-            files = sorted((root / 'benchmark' / dataset / 'HR').glob('*.png'))
+            dataset_root = root / 'benchmark' / dataset
+            if dataset == 'manga109' and not dataset_root.exists():
+                dataset_root = root / 'benchmark/Manga109'
+            files = sorted((dataset_root / 'HR').glob('*.png'))
             if not files:
                 raise FileNotFoundError(dataset)
             if args.benchmarks == 'smoke':
                 files = files[:1]
             for hr in files:
-                lr = root / 'benchmark' / dataset / f'LR_bicubic/X{args.scale}' / (hr.stem + f'x{args.scale}.png')
+                lr = dataset_root / f'LR_bicubic/X{args.scale}' / (hr.stem + f'x{args.scale}.png')
                 result.append((dataset, hr.stem, hr, lr, 'benchmark_smoke' if args.benchmarks == 'smoke' else 'benchmark_full'))
     if not result:
         raise ValueError('No samples selected')
@@ -194,8 +197,9 @@ class Tee:
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--project-root', default='E:/fuxian_LFMN_jianghe')
-    parser.add_argument('--data-root', default='E:/fuxian_LFMN_jianghe/datasets')
+    parser.add_argument('--project-root', default=str(ROOT))
+    parser.add_argument('--data-root')
+    parser.add_argument('--output-root')
     parser.add_argument('--scale', type=int, choices=(2, 3, 4), default=4)
     parser.add_argument('--checkpoint')
     parser.add_argument('--plugin')
@@ -206,6 +210,8 @@ def main():
     parser.add_argument('--div2k-ids', type=int, nargs='*', default=list(range(801, 809)))
     parser.add_argument('--check-only', action='store_true')
     args = parser.parse_args()
+    if args.data_root is None:
+        args.data_root = str(Path(args.project_root) / 'datasets')
     if (args.scheme == 'P0') != (args.plugin is None):
         parser.error('P0 has no plugin; P1/P2 require an explicit isolated plugin')
     if args.crop_lr < 0 or (args.crop_lr and args.crop_lr < 28):
@@ -214,11 +220,11 @@ def main():
     torch.manual_seed(1)
     project = Path(args.project_root)
     stamp = datetime.now().strftime('%Y%m%d_%H%M%S_%f')
-    out = project / 'experiment/all_runs' / f'{args.scheme}_diagnostic_x{args.scale}_seed1_{stamp}'
+    output_root = Path(args.output_root) if args.output_root else project / 'experiment/all_runs'
+    out = output_root / f'{args.scheme}_diagnostic_x{args.scale}_seed1_{stamp}'
     out.mkdir(parents=True, exist_ok=False)
     original_out, original_err = sys.stdout, sys.stderr
     log = (out / 'diagnostic_log.txt').open('w', encoding='utf-8')
-    sys.stdout, sys.stderr = Tee(original_out, log), Tee(original_err, log)
     config = vars(args).copy()
     config.update({'status': 'running', 'run_id': out.name, 'output_directory': str(out),
                    'seed': 1, 'baseline_training_seed': 'unknown', 'training': False,
@@ -235,12 +241,13 @@ def main():
                                        'ssim': 'RGB255 clamp-round; BT601 [65.481,128.553,24.966]; shave scale; Gaussian11 sigma1.5'},
                    'region_protocol': 'LR normalized Sobel/8; 5x5 mean tensor; energy>=1e-4; coherence edge>=.7 mixed<.3; other otherwise; no periodic classifier',
                    'scope': 'full benchmark' if args.benchmarks == 'full' and not args.crop_lr else 'diagnostic crops; not full benchmark scores'})
+    sys.stdout, sys.stderr = Tee(original_out, log), Tee(original_err, log)
     started = time.perf_counter()
     try:
         checkpoint = Path(args.checkpoint) if args.checkpoint else project / 'LFMN/model' / {2: 'scale2_model_996.pt', 3: 'scale3_model_969.pt', 4: 'scale4_model_939.pt'}[args.scale]
         config['checkpoint'] = str(checkpoint.resolve())
         config['checkpoint_sha256'] = sha(checkpoint)
-        config['gpu'] = torch.cuda.get_device_name(0) if args.device.startswith('cuda') else None
+        config['gpu'] = torch.cuda.get_device_name(torch.device(args.device)) if args.device.startswith('cuda') else None
         write_json(out / 'config.json', config)
         print(f'Output: {out}', flush=True)
         net = Net(scale=args.scale).to(args.device).eval()
