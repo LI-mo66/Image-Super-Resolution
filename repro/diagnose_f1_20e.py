@@ -156,8 +156,16 @@ def state_digest(model):
 
 def read_pair(hr_path, lr_path, patch=None):
     import imageio.v2 as imageio
-    from data.common import np2Tensor, set_channel
-    hr, lr = set_channel(imageio.imread(hr_path), imageio.imread(lr_path), n_channels=3)
+    import numpy as np
+    import torch
+    def rgb(path):
+        value = imageio.imread(path)
+        if value.ndim == 2:
+            value = np.repeat(value[:, :, None], 3, axis=2)
+        if value.ndim != 3 or value.shape[2] != 3:
+            raise ValueError('diagnostics require RGB/grayscale images, not RGBA')
+        return value
+    hr, lr = rgb(hr_path), rgb(lr_path)
     height, width = lr.shape[:2]
     if hr.shape[0] // 4 != height or hr.shape[1] // 4 != width:
         raise ValueError('x4 LR/HR dimensions mismatch: ' + str(hr_path))
@@ -168,10 +176,41 @@ def read_pair(hr_path, lr_path, patch=None):
         top, left = (height - patch) // 2, (width - patch) // 2
         lr = lr[top:top + patch, left:left + patch]
         hr = hr[top * 4:(top + patch) * 4, left * 4:(left + patch) * 4]
-    lr, hr = np2Tensor(lr, hr, rgb_range=255)
+    lr, hr = [torch.from_numpy(np.ascontiguousarray(value.transpose(2, 0, 1))).float() for value in (lr, hr)]
     if lr.shape[0] != 3 or hr.shape[0] != 3:
         raise ValueError('diagnostics require RGB/grayscale images, not RGBA')
     return lr.unsqueeze(0), hr.unsqueeze(0)
+
+
+def memory_snapshot():
+    result = {}
+    for name in ('memory.max', 'memory.current', 'memory.events'):
+        path = Path('/sys/fs/cgroup') / name
+        try:
+            result[str(path)] = path.read_text().strip()
+        except OSError:
+            pass
+    for name in ('memory.limit_in_bytes', 'memory.usage_in_bytes', 'memory.oom_control'):
+        path = Path('/sys/fs/cgroup/memory') / name
+        try:
+            result[str(path)] = path.read_text().strip()
+        except OSError:
+            pass
+    return result
+
+
+def saved_set5(args, label):
+    for source in sorted((args.group / 'comparison_reports').glob('*/set5_per_image_comparison.csv'), reverse=True):
+        with source.open(newline='', encoding='utf-8-sig') as stream:
+            rows = [row for row in csv.DictReader(stream) if int(row['epoch']) == args.epoch]
+        if len(rows) != 5 or len({row['filename'] for row in rows}) != 5:
+            continue
+        return [dict(model=label, epoch=args.epoch, filename=row['filename'],
+                     psnr=float(row[label + '_psnr']), ssim=float(row[label + '_ssim']),
+                     metric_origin='saved_report_not_recomputed', metric_source=str(source),
+                     metric_source_sha256=sha256(source)) for row in rows]
+    print('WARNING: no complete saved Set5 report for ' + label + '; metrics not measured', flush=True)
+    return []
 
 
 def collect_records(args, output):
@@ -225,10 +264,16 @@ def protocol_check(args, output):
 
 
 def worker(args, output):
+    print('PHASE importing torch', flush=True)
     import torch
     from model.lfmn import Net as B0
     from model.lfmnf1 import Net as F1
-    import utility
+    if args.cpu:
+        torch.set_num_threads(args.cpu_threads)
+        torch.set_num_interop_threads(args.cpu_threads)
+    if args.set5_mode == 'full':
+        import utility
+    print('PHASE imports complete', flush=True)
     device = torch.device('cpu' if args.cpu else 'cuda')
     if device.type == 'cuda' and not torch.cuda.is_available():
         raise RuntimeError('CUDA unavailable; use --cpu explicitly')
@@ -249,9 +294,12 @@ def worker(args, output):
                     module_paths=dict(B0=inspect.getfile(B0), F1=inspect.getfile(F1)),
                     model_source_sha256={name: sha256(ROOT / name) for name in
                                          ('LFMN/model/lfmn.py', 'LFMN/model/lfmnf1.py', 'LFMN/utility.py')},
-                    stage_protocol='fixed DIV2K 0801 onward; center LR64/HR256; RGB raw255',
+                    stage_protocol='fixed DIV2K 0801 onward; center LR{}/HR{}; RGB raw255'.format(args.patch_size, args.patch_size * 4),
+                    gradient_samples=args.gradient_samples, set5_mode=args.set5_mode,
                     gradient_protocol='eval-mode raw RGB L1, no optimizer step; not historical training gradients',
-                    set5_protocol='full image x4 OFF; existing utility quantize255/Y PSNR crop4/SSIM MATLAB Y crop4',
+                    set5_protocol=('saved original report; no fresh CPU Set5 measurement; audit source protocol separately'
+                                   if args.set5_mode == 'saved' else
+                                   'full image x4 OFF; existing utility quantize255/Y PSNR crop4/SSIM MATLAB Y crop4'),
                     copied_records=len(records), protocol_check=checked,
                     interpretation='Feature correlation is not functional redundancy; probes do not establish trained gains')
     write_json(output / 'manifest.json', manifest)
@@ -274,6 +322,7 @@ def worker(args, output):
     save_csv(output / 'alpha_history.csv', sorted(alpha_rows, key=lambda row: (row['epoch'], row['stage'])))
     benchmark = SimpleNamespace(dataset=SimpleNamespace(benchmark=True))
     for label, cls in (('B0', B0), ('F1', F1)):
+        print('PHASE loading ' + label, flush=True)
         net = cls(scale=4).to(device).eval()
         state = torch.load(checkpoint_sources[label]['path'], map_location='cpu', weights_only=True)
         net.load_state_dict(state, strict=True)
@@ -283,15 +332,17 @@ def worker(args, output):
             for index in range(args.samples):
                 image = '{:04d}'.format(801 + index)
                 lr, hr = read_pair(args.data_root / 'DIV2K/DIV2K_valid_HR' / (image + '.png'),
-                                   args.data_root / 'DIV2K/DIV2K_valid_LR_bicubic/X4' / (image + 'x4.png'), patch=64)
+                                   args.data_root / 'DIV2K/DIV2K_valid_LR_bicubic/X4' / (image + 'x4.png'), patch=args.patch_size)
                 lr, hr = lr.to(device), hr.to(device)
                 probe.reset(image)
+                print('PHASE forward {} {}'.format(label, image), flush=True)
                 with torch.no_grad():
                     net(lr)
                 if len(probe.rows) != 8:
                     raise AssertionError('incomplete eight-stage trace')
                 stage_rows.extend(probe.rows)
                 if index < args.gradient_samples:
+                    print('PHASE gradient {} {}'.format(label, image), flush=True)
                     probe.reset(image + '_gradient')
                     sr = net(lr)
                     loss = (sr - hr).abs().mean()
@@ -309,11 +360,16 @@ def worker(args, output):
                                                   alpha_gradient=float(gradients[-1][stage]) if label == 'F1' else None))
                     del sr, loss, gradients, targets
                 print('PROBE {} {} complete'.format(label, image), flush=True)
+                save_csv(output / 'stage_stats.csv', stage_rows)
+                save_csv(output / 'gradient_stats.csv', gradient_rows)
             probe.close()
+            if args.set5_mode == 'saved':
+                set5_rows.extend(saved_set5(args, label))
             hr_files = sorted(path for path in (args.data_root / 'benchmark/Set5/HR').glob('*') if path.is_file())
-            if len(hr_files) != 5:
+            if args.set5_mode == 'full' and len(hr_files) != 5:
                 raise ValueError('Set5 must have exactly five HR images')
-            for path in hr_files:
+            for path in hr_files if args.set5_mode == 'full' else []:
+                print('PHASE full Set5 {} {}'.format(label, path.stem), flush=True)
                 lr, hr = read_pair(path, args.data_root / 'benchmark/Set5/LR_bicubic/X4' / (path.stem + 'x4.png'))
                 lr, hr = lr.to(device), hr.to(device)
                 with torch.no_grad():
@@ -322,7 +378,7 @@ def worker(args, output):
                                       psnr=utility.calc_psnr(sr, hr, 4, 255, dataset=benchmark),
                                       ssim=float(utility.calc_ssim(sr, hr, 4, 255, dataset=benchmark))))
             lr, _ = read_pair(args.data_root / 'DIV2K/DIV2K_valid_HR/0801.png',
-                              args.data_root / 'DIV2K/DIV2K_valid_LR_bicubic/X4/0801x4.png', patch=64)
+                              args.data_root / 'DIV2K/DIV2K_valid_LR_bicubic/X4/0801x4.png', patch=args.patch_size)
             with torch.no_grad():
                 plain = net(lr.to(device))
                 check_probe = StageProbe(net, label)
@@ -342,7 +398,8 @@ def worker(args, output):
         del net, state
     save_csv(output / 'stage_stats.csv', stage_rows)
     save_csv(output / 'gradient_stats.csv', gradient_rows)
-    save_csv(output / 'set5_recheck.csv', set5_rows)
+    save_csv(output / ('set5_saved.csv' if args.set5_mode == 'saved' else 'set5_recheck.csv'), set5_rows)
+    manifest['set5_rows'] = len(set5_rows)
     write_json(output / 'read_only_checks.json', parity)
     manifest['read_only_checks'] = parity
     manifest['diagnostic_status'] = 'completed'
@@ -360,6 +417,7 @@ def worker(args, output):
             averages.append(mean)
     save_csv(output / 'stage_summary.csv', averages)
     lines = ['# Read-only B0/F1 diagnostic', '', 'Protocol check: ' + checked['status'],
+             'LR patch: {}; gradient samples: {}; Set5 mode: {}.'.format(args.patch_size, args.gradient_samples, args.set5_mode),
              'No training or optimizer step. All source checkpoint and model-state checks passed.', '',
              '| Model | Stage | Delta/previous RMS | Update/previous RMS | State/previous RMS | Mask mean | Alpha |',
              '|---|---:|---:|---:|---:|---:|---:|']
@@ -380,11 +438,20 @@ def main():
     parser.add_argument('--group', type=Path, required=True)
     parser.add_argument('--data-root', type=Path, required=True)
     parser.add_argument('--epoch', type=int, default=20)
-    parser.add_argument('--samples', type=int, default=10)
-    parser.add_argument('--gradient-samples', type=int, default=3)
+    parser.add_argument('--samples', type=int)
+    parser.add_argument('--gradient-samples', type=int)
+    parser.add_argument('--patch-size', type=int)
+    parser.add_argument('--cpu-threads', type=int, default=1)
+    parser.add_argument('--set5-mode', choices=('saved', 'full'))
     parser.add_argument('--cpu', action='store_true')
     parser.add_argument('--output', type=Path)
     args = parser.parse_args()
+    args.samples = args.samples if args.samples is not None else (3 if args.cpu else 10)
+    args.gradient_samples = args.gradient_samples if args.gradient_samples is not None else (0 if args.cpu else 3)
+    args.patch_size = args.patch_size if args.patch_size is not None else (28 if args.cpu else 64)
+    args.set5_mode = args.set5_mode or ('saved' if args.cpu else 'full')
+    if args.patch_size < 28 or args.cpu_threads < 1:
+        raise ValueError('patch-size must be >=28; cpu-threads must be positive')
     args.group, args.data_root = args.group.resolve(), args.data_root.resolve()
     if not 1 <= args.samples <= 100 or not 0 <= args.gradient_samples <= args.samples:
         raise ValueError('samples must be 1..100; gradient-samples must be 0..samples')
@@ -401,14 +468,18 @@ def main():
                '--group', str(args.group), '--data-root', str(args.data_root)]
     config = dict(kind='read_only_diagnostic', group=str(args.group), data_root=str(args.data_root),
                   epoch=args.epoch, samples=args.samples, gradient_samples=args.gradient_samples,
+                  cpu=args.cpu, cpu_threads=args.cpu_threads, patch_size=args.patch_size, set5_mode=args.set5_mode,
                   self_ensemble=False, optimizer_step=False, **provenance(ROOT))
     archive = output.with_name(output.name + '.tar.gz')
     if output.exists() or archive.exists():
         raise FileExistsError('diagnostic directory/archive already exists: ' + str(output))
+    memory_before = memory_snapshot()
     try:
         launch(command, output, config, ROOT)
     finally:
         if output.exists():
+            write_json(output / 'memory_events.json', dict(before=memory_before, after=memory_snapshot(),
+                       note='Container-wide events; changes are not proof this process caused an OOM. Empty means unavailable.'))
             checksums = {str(path.relative_to(output)): sha256(path)
                          for path in sorted(output.rglob('*')) if path.is_file()}
             write_json(output / 'checksums.json', checksums)
