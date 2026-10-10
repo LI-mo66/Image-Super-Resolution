@@ -1,0 +1,40 @@
+{
+  "baseline_source_commit": "1e51b2068b62a793860e7b7192a43877d9ccc2f1",
+  "phase": "fixed_checkpoint_diagnostics",
+  "scale": 4,
+  "crop_lr": 64,
+  "div2k_ids": [
+    801,
+    802,
+    803,
+    804,
+    805,
+    806,
+    807,
+    808
+  ],
+  "selection_ids": [
+    801,
+    802,
+    803,
+    804
+  ],
+  "inspection_ids": [
+    805,
+    806,
+    807,
+    808
+  ],
+  "benchmark_mode": "first_image_center_crop_smoke_only",
+  "p1_factors": [
+    -0.02,
+    0.02
+  ],
+  "p2_stages": [
+    0,
+    3,
+    7
+  ],
+  "p2_queries": 24,
+  "training_authorized": false
+}
