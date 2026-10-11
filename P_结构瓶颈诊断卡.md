@@ -11,3 +11,9 @@
 停止线：缺图/权重来源不符/输出非有限/状态变动阻断。真实GPU测试由服务器执行，失败保留日志；不自动切chop或更改评测口径。后续候选须新独立分支/实验卡/固定协议，不把本探针当候选晋级。
 
 实现验证：AST与CLI帮助通过；CPU Toy验证observe/repeat保持原输出、四类扰动生效、hook移除后恢复原输出、SFML beta语义正确、三类观测调用到达。用实际返回逐图结果验证选择规则确定且去重，当前30张诊断样本。未在本机运行真实LFMN、数据或CUDA推理；服务器真实检查仍待执行。
+
+## 用户授权下一轮：单阶段beta定位
+
+同一30图、同一官方权重、同一全图指标；每次只修改sfmls.0..7中一个阶段的beta偏离1幅度×0.98/1.02，另含observe/repeat。仅官方18前向/图，540记录，不再重复P0/P3输出。独立运行名P_stage_beta_diagnostic。记录实际prev、beta*prev、gamma、FM的RMS，gamma/beta*prev比值，以及beta范围与均值；从first_conv及ESA输出捕获下一阶段prev，与骨架forward一致。不复制或改写原Net.forward，不修改gamma/其他stage。结果仍事后选择诊断，先定位再预注册新DIV2K样本复核，不据此训练候选。
+
+本地验证：8阶段CPU Toy逐阶段隔离与手算输出一致，其他7阶段beta不变；observe严格恢复输出；prev/beta/gamma幅度正确；移除hook恢复；非法阶段拒绝；AST/CLI通过。服务器真实模型待执行。stage_summary.json自动汇总逐阶段及各集合的PSNR/SSIM配对指标，区间只描述已选诊断样本，不作泛化声明。
