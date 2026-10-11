@@ -7,6 +7,27 @@ import subprocess
 import zipfile
 
 
+def confirmation_gate(pairs, ssim_mean, repeat_max):
+    import random
+    import statistics
+    from summarize_p_adaptation import paired_stats
+    stats = paired_stats(pairs)
+    values = [v for _, v in pairs]
+    rng = random.Random(20261011)
+    boot = sorted(statistics.mean(rng.choices(values, k=len(values))) for _ in range(5000))
+    interval = [boot[41], boot[4958]]
+    if repeat_max != 0:
+        decision = 'INCONCLUSIVE'
+    elif stats['mean'] > 0 and stats['median'] > 0 and stats['win_rate'] >= .6 and ssim_mean >= -1e-4 and interval[0] > 0:
+        decision = 'REPLICATED_SIGNAL'
+    elif stats['mean'] <= 0 and stats['median'] <= 0:
+        decision = 'NOT_REPLICATED'
+    else:
+        decision = 'GRAY'
+    return {'decision': decision, 'bonferroni3_bootstrap_interval': interval,
+            'repeat_max_abs': repeat_max, 'scope': 'fixed weight, 20 preselected images; no training GO'}
+
+
 def select_images(rows):
     index = {s: {(r['dataset'], r['image']): r for r in rows[s]} for s in ('Official', 'P3')}
     if any(len(index[s]) != len(rows[s]) for s in index) or index['Official'].keys() != index['P3'].keys():
@@ -86,7 +107,10 @@ def main():
     parser.add_argument('--data-root', type=Path, default=Path('/root/autodl-tmp/datasets'))
     parser.add_argument('--gpu', default='0')
     parser.add_argument('--stage-beta-only', action='store_true', help='Official only; perturb one SFML stage at a time')
+    parser.add_argument('--confirm-div2k', action='store_true', help='Fixed DIV2K881..900 full-image confirmation of stages5/6/7')
     args = parser.parse_args()
+    if args.confirm_div2k and args.stage_beta_only:
+        parser.error('Choose stage discovery or independent confirmation, not both')
     if os.name == 'nt':
         raise RuntimeError('Real model diagnosis is server-only')
     os.environ['CUDA_VISIBLE_DEVICES'] = args.gpu
@@ -102,9 +126,15 @@ def main():
         if relative != 'repro/eval_p03_final_server.py' and sha(ROOT/relative) != digest:
             raise ValueError(f'Changed evaluation source: {relative}')
     rows = {s: json.loads((args.previous_eval/f'{s}_per_image.json').read_text()) for s in ('Official', 'P3')}
-    selected = select_images(rows)
+    selected = [('DIV2K_valid', f'{i:04d}') for i in range(881, 901)] if args.confirm_div2k else select_images(rows)
+    if args.confirm_div2k:
+        for _, name in selected:
+            for path in (args.data_root/'DIV2K/DIV2K_valid_HR'/f'{name}.png',
+                         args.data_root/'DIV2K/DIV2K_valid_LR_bicubic/X4'/f'{name}x4.png'):
+                if not path.is_file():
+                    raise FileNotFoundError(f'Missing preselected confirmation input: {path}')
     paths = {'Official': Path(previous['official_checkpoint'])}
-    if not args.stage_beta_only:
+    if not (args.stage_beta_only or args.confirm_div2k):
         paths.update({s: Path(previous['source_runs'][s]['checkpoint']) for s in ('P0', 'P3')})
     states = {}
     for scheme, path in paths.items():
@@ -113,7 +143,7 @@ def main():
             raise ValueError(f'Checkpoint hash mismatch: {scheme}')
         state = torch.load(path, map_location='cpu', weights_only=scheme == 'Official')
         states[scheme] = state if scheme == 'Official' else state['model']
-    config = {'training': False, 'post_hoc_selection': True, 'selected': selected,
+    config = {'training': False, 'post_hoc_selection': not args.confirm_div2k, 'selected': selected,
               'previous_config': previous, 'previous_eval': str(args.previous_eval.resolve()),
               'device': 'cuda:0', 'gpu_name': torch.cuda.get_device_name(0), 'torch': torch.__version__,
               'git_commit': subprocess.check_output(['git', 'rev-parse', 'HEAD'], cwd=ROOT, text=True).strip(),
@@ -121,10 +151,14 @@ def main():
               'region_scope': 'LR strata; mixed is not periodic texture classifier'}
     variants = ['observe', 'repeat']+([f'beta@{stage}:{factor}' for stage in range(8) for factor in (.98, 1.02)]
                 if args.stage_beta_only else [f'{kind}:{factor}' for kind in ('beta', 'gamma', 'iasa', 'lrsa') for factor in (.98, 1.02)])
-    config.update(stage_beta_only=args.stage_beta_only, variants=variants,
+    if args.confirm_div2k:
+        variants = ['observe', 'repeat', 'beta@5:1.02', 'beta@6:1.02', 'beta@7:1.02']
+    config.update(stage_beta_only=args.stage_beta_only, confirm_div2k=args.confirm_div2k, variants=variants,
+                  confirmation_card_sha256=sha(ROOT/'P_beta独立样本复核卡.md') if args.confirm_div2k else None,
                   modulation_semantics='prev=first_conv or previous ESA output; effective beta/gamma before TAB')
     reference = {(r['dataset'], r['image']): r for r in rows['Official']}
-    with RunLogger(ROOT/'experiment/all_runs', 'P_stage_beta_diagnostic' if args.stage_beta_only else 'P_structure_diagnostic', 4, 1, config) as log:
+    run_name = 'P_beta_confirm' if args.confirm_div2k else ('P_stage_beta_diagnostic' if args.stage_beta_only else 'P_structure_diagnostic')
+    with RunLogger(ROOT/'experiment/all_runs', run_name, 4, 1, config) as log:
         records = []
         net = Baseline(scale=4).to('cuda:0').eval()
         for ds, name in selected:
@@ -132,19 +166,24 @@ def main():
             if ds == 'manga109' and not folder.exists():
                 folder = args.data_root/'benchmark/Manga109'
             hp, lp = folder/'HR'/f'{name}.png', folder/'LR_bicubic/X4'/f'{name}x4.png'
-            if sha(hp) != reference[(ds, name)]['hr_hash'] or sha(lp) != reference[(ds, name)]['lr_hash']:
+            if args.confirm_div2k:
+                hp = args.data_root/'DIV2K/DIV2K_valid_HR'/f'{name}.png'
+                lp = args.data_root/'DIV2K/DIV2K_valid_LR_bicubic/X4'/f'{name}x4.png'
+            hr_hash, lr_hash = sha(hp), sha(lp)
+            if not args.confirm_div2k and (hr_hash != reference[(ds, name)]['hr_hash'] or lr_hash != reference[(ds, name)]['lr_hash']):
                 raise ValueError(f'Data differs from source: {ds}/{name}')
             lr, hr, alignment = read_pair(hp, lp, 4, 0)
             masks = masks_for(lr)
             lr, hr = lr.to('cuda:0'), hr.to('cuda:0')
             image_dir = log.directory/'images'/ds/name
-            image_dir.mkdir(parents=True)
+            if not args.confirm_div2k: image_dir.mkdir(parents=True)
             def png(tensor, target):
                 data = tensor.detach().clamp(0, 255).round().byte().cpu().numpy()
                 if data.ndim == 4: data = data[0].transpose(1, 2, 0)
                 Image.fromarray(data).save(target)
-            png(lr, image_dir/'LR.png')
-            png(hr, image_dir/'HR.png')
+            if not args.confirm_div2k:
+                png(lr, image_dir/'LR.png')
+                png(hr, image_dir/'HR.png')
             base = None
             for scheme in paths:
                 for variant in variants if scheme == 'Official' else ['observe']:
@@ -159,7 +198,7 @@ def main():
                         for handle in handles: handle.remove()
                     if {r['class'] for r in stats.values()} != {'SFML', 'IASA', 'Attention'}:
                         raise ValueError('Expected SFML/IASA/LRSA observations not all executed')
-                    if args.stage_beta_only and sum('modulation' in r for r in stats.values()) != 8:
+                    if (args.stage_beta_only or args.confirm_div2k) and sum('modulation' in r for r in stats.values()) != 8:
                         raise ValueError('Expected eight actual SFML modulation observations')
                     for key, value in net.state_dict().items():
                         if not torch.equal(value.cpu(), states[scheme][key]):
@@ -168,15 +207,16 @@ def main():
                     if scheme == 'Official' and variant == 'observe': base = sr.detach().clone()
                     record = {'dataset': ds, 'image': name, 'scheme': scheme, 'variant': variant,
                               'metrics': metrics, 'modules': stats, 'alignment': alignment,
+                              'hr_hash': hr_hash, 'lr_hash': lr_hash,
                               'max_abs_vs_official_observe': float((sr-base).abs().max())}
                     records.append(record)
-                    if variant == 'observe':
+                    if variant == 'observe' and not args.confirm_div2k:
                         png(sr, image_dir/f'{scheme}_SR.png')
                         error = (sr.clamp(0, 255).round()-hr).abs().mean(1)[0]*8
                         png(error, image_dir/f'{scheme}_RGB_error_x8.png')
                     atomic_json(log.directory/'diagnostic.json', records)
                     print(f'{ds}/{name} {scheme} {variant}: PSNR={metrics["psnr_y_quantized"]:.8f}', flush=True)
-        if args.stage_beta_only:
+        if args.stage_beta_only or args.confirm_div2k:
             from summarize_p_adaptation import paired_stats
             base_rows = {(r['dataset'], r['image']): r for r in records if r['variant'] == 'observe'}
             summary = {}
@@ -189,7 +229,16 @@ def main():
                         (r['dataset']+'/'+r['image'], r['metrics'][metric]-base_rows[(r['dataset'], r['image'])]['metrics'][metric])
                         for r in selected_rows]) for metric in ('psnr_y_quantized', 'ssim_y_quantized')}
             atomic_json(log.directory/'stage_summary.json', {
-                'scope': 'post-hoc selected diagnostic images; not independent gain evidence', 'variants': summary})
+                'scope': 'fixed DIV2K881..900 confirmation' if args.confirm_div2k else 'post-hoc selected diagnostic images; not independent gain evidence', 'variants': summary})
+            if args.confirm_div2k:
+                repeat_max = max(r['max_abs_vs_official_observe'] for r in records if r['variant'] == 'repeat')
+                decisions = {}
+                for variant in variants[2:]:
+                    pairs = [(r['image'], r['metrics']['psnr_y_quantized']-base_rows[(r['dataset'], r['image'])]['metrics']['psnr_y_quantized'])
+                             for r in records if r['variant'] == variant]
+                    decisions[variant] = confirmation_gate(pairs, summary[variant]['selected_all']['ssim_y_quantized']['mean'], repeat_max)
+                    print(f'CONFIRM {variant}: {decisions[variant]}', flush=True)
+                atomic_json(log.directory/'confirmation_decisions.json', decisions)
         log.update(final_metrics={'images': len(selected), 'records': len(records)})
         output = log.directory
     archive = output.with_suffix('.zip')
