@@ -4,6 +4,7 @@ from pathlib import Path
 import tempfile
 from lfmn_baseline_logging import RunLog
 import sys
+import subprocess
 
 
 def main():
@@ -14,6 +15,12 @@ def main():
         print('stdout live marker')
         print('stderr live marker', file=sys.stderr)
         assert 'stderr live marker' in (a.path / 'train_log.txt').read_text(encoding='utf-8')
+        try:
+            RunLog(root,resume=a.path)
+        except FileExistsError:
+            pass
+        else:
+            raise AssertionError('Concurrent writer lock missing')
         a.finish()
         before = (a.path / 'train_log.txt').read_bytes()
         b = RunLog(root)
@@ -30,8 +37,21 @@ def main():
         c.finish()
         assert (a.path / 'train_log.txt').read_bytes().startswith(before)
         assert len(json.loads((a.path / 'config.json').read_text())['sessions']) == 2
+        result = subprocess.run([sys.executable,__file__,'--fail-probe',root],capture_output=True,text=True)
+        assert result.returncode == 1 and 'Traceback' in result.stderr
+        failed = [d for d in Path(root).iterdir() if (d/'config.json').exists() and
+                  json.loads((d/'config.json').read_text())['status'] == 'failed']
+        assert len(failed) == 2
     print('PASS: live stdout/stderr, unique directories, exception traceback/status, append resume')
 
 
 if __name__ == '__main__':
-    main()
+    if '--fail-probe' in sys.argv:
+        probe = RunLog(sys.argv[-1])
+        try:
+            raise RuntimeError('subprocess nonzero failure probe')
+        except RuntimeError as error:
+            probe.finish(error)
+            sys.exit(1)
+    else:
+        main()
