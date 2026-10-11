@@ -154,9 +154,10 @@ def run(args):
             continuation = compare_states(resumed, direct, parameter_keys)
             report['checks']['gpu_continuation'] = continuation
             if not continuation['within_tolerance']:
-                # Only the known prototype-buffer reproducibility limit can use
-                # this fallback. Parameter or unrelated buffer drift still fails.
-                if any(row['kind'] != 'buffer' or not row['key'].endswith('.means')
+                # Hard-route changes can propagate into parameter gradients too.
+                # Serialization is already exact; require no-reload GPU controls
+                # to reproduce each affected state class before CPU replay.
+                if any(row['kind'] == 'buffer' and not row['key'].endswith('.means')
                        for row in continuation['mismatches']):
                     raise AssertionError(f'Unexplained continuation mismatch: {continuation}')
                 repeats = []
@@ -169,6 +170,13 @@ def run(args):
                 report['checks']['gpu_same_instance_repeat_controls'] = repeats
                 if not any(any(row['key'].endswith('.means') for row in control['mismatches']) for control in repeats):
                     raise AssertionError('GPU repeat controls do not explain prototype drift; keep gate blocked')
+                parameter_drift = any(row['kind'] == 'parameter' for row in continuation['mismatches'])
+                if parameter_drift and not any(any(row['kind'] == 'parameter' for row in control['mismatches']) for control in repeats):
+                    raise AssertionError('GPU controls do not reproduce parameter-update variation; keep gate blocked')
+                report['checks']['gpu_repeatability_scope'] = {
+                    'same_instance_no_checkpoint_reload_control': True,
+                    'parameter_variation_reproduced': parameter_drift,
+                    'specific_cause': 'GPU training nonrepeatability observed; atomic clustering/hard routing is a plausible mechanism, not isolated proof'}
                 print('GPU prototype repeatability limitation reproduced without checkpoint reconstruction. '
                       'Running exact CPU replay of the same real batch; production training is unchanged.', flush=True)
                 report['checks']['cpu_resume_replay'] = deterministic_cpu_replay(
