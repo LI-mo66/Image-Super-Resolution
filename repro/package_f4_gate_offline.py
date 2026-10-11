@@ -12,7 +12,7 @@ def main():
     required=['repro/probe_f4_gates.py','repro/shutdown_f4_gate_probe.py',
               'repro/run_f4_gate_probe_nohup.sh','repro/test_f4_gate_probe.py',
               'F4_门控干预预注册.md','F4_门控干预_服务器运行说明.md']
-    raw=subprocess.check_output(['git','archive','--format=zip',commit,'--','LFMN','requirements-server.txt',*required],cwd=ROOT)
+    raw=subprocess.check_output(['git','-c','core.autocrlf=false','archive','--format=zip',commit,'--','LFMN','requirements-server.txt',*required],cwd=ROOT)
     out=ROOT/'experiment/offline_packages';out.mkdir(parents=True,exist_ok=True)
     target=out/('F4_gate_server_'+commit[:7]+'.zip');prefix='Image-Super-Resolution-F4-gate/'
     hashes={}
@@ -20,6 +20,8 @@ def main():
         for item in source.infolist():
             if item.is_dir() or item.filename.endswith(('.pt','.pyc','.pyd','.so')):continue
             data=source.read(item);hashes[item.filename]=hashlib.sha256(data).hexdigest()
+            blob=subprocess.check_output(['git','show',commit+':'+item.filename],cwd=ROOT)
+            assert data==blob, 'Archive differs from committed bytes: '+item.filename
             dest.writestr(prefix+item.filename,data)
         dest.writestr(prefix+'OFFLINE_SOURCE.json',json.dumps(dict(source_commit=commit,files_sha256=hashes),indent=2))
     with zipfile.ZipFile(target) as archive:
