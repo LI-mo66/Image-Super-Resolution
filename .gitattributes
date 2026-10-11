@@ -1,0 +1,2 @@
+# Server shell scripts must remain executable by Linux Bash in checkouts and archives.
+*.sh text eol=lf

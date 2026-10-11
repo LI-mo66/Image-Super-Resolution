@@ -24,7 +24,10 @@ def main():
         dest.writestr(prefix+'OFFLINE_SOURCE.json',json.dumps(dict(source_commit=commit,files_sha256=hashes),indent=2))
     with zipfile.ZipFile(target) as archive:
         assert archive.testzip() is None
-        for name,digest in hashes.items():assert hashlib.sha256(archive.read(prefix+name)).hexdigest()==digest
+        for name,digest in hashes.items():
+            data=archive.read(prefix+name)
+            assert hashlib.sha256(data).hexdigest()==digest
+            if name.endswith('.sh'):assert b'\r' not in data, 'Linux shell script contains CR: '+name
         assert all(name in hashes for name in required)
     print(json.dumps(dict(file=str(target),commit=commit,sha256=hashlib.sha256(target.read_bytes()).hexdigest()),indent=2))
 
