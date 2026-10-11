@@ -45,15 +45,19 @@ def main():
     parser.add_argument('--run-root', type=Path, required=True)
     parser.add_argument('--data-root', type=Path, default=Path('/root/autodl-tmp/datasets'))
     parser.add_argument('--gpu', default='0')
+    parser.add_argument('--official-checkpoint', type=Path,
+                        help='Also evaluate the original official x4 weights, with strict SHA validation')
     args = parser.parse_args()
     if os.name == 'nt':
         raise RuntimeError('Actual LFMN evaluation is server-only')
     os.environ['CUDA_VISIBLE_DEVICES'] = args.gpu
     import torch
-    from train_p_adaptation import Baseline, ROOT, atomic_json, evaluate, sha
+    from train_p_adaptation import Baseline, ROOT, EXPECTED_CHECKPOINT, atomic_json, evaluate, sha
     from p_adapt_logging import RunLogger
     if not torch.cuda.is_available():
         raise RuntimeError('CUDA GPU required')
+    if args.official_checkpoint and sha(args.official_checkpoint) != EXPECTED_CHECKPOINT:
+        raise ValueError('Original official x4 checkpoint SHA mismatch')
     sources = {}
     for scheme in ('P0', 'P3'):
         matches = sorted(args.run_root.glob(f'{scheme}_x4_seed1_*/config.json'))
@@ -83,10 +87,25 @@ def main():
               'git_commit': subprocess.check_output(['git', 'rev-parse', 'HEAD'], cwd=ROOT, text=True).strip(),
               'source_runs': {s: {'config': c, 'checkpoint': str(p.resolve())} for s, (c, p) in sources.items()},
               'selection': 'final epoch20/global_step2000 only; full image; no ensemble/chop',
+              'official_checkpoint': str(args.official_checkpoint.resolve()) if args.official_checkpoint else None,
+              'official_checkpoint_sha256': EXPECTED_CHECKPOINT if args.official_checkpoint else None,
               'evaluation_source_sha256': {str(p.relative_to(ROOT)): sha(p) for p in
                   (Path(__file__), ROOT/'repro/train_p_adaptation.py', ROOT/'repro/run_p_diagnostics.py', ROOT/'LFMN/model/lfmn.py')}}
     with RunLogger(ROOT/'experiment/all_runs', 'P03_final_benchmark', 4, 1, config) as log:
         rows = {}
+        if args.official_checkpoint:
+            torch.manual_seed(1)
+            torch.cuda.manual_seed_all(1)
+            net = Baseline(scale=4).to('cuda:0')
+            state = torch.load(args.official_checkpoint, map_location='cpu', weights_only=True)
+            net.load_state_dict(state, strict=True)
+            del state
+            print('Official: full five-dataset x4 evaluation starts', flush=True)
+            rows['Official'] = evaluate(net, args.data_root, 'cuda:0', 0, 0, benchmark=True)
+            atomic_json(log.directory/'Official_per_image.json', rows['Official'])
+            print(f"Official: completed {len(rows['Official'])} images", flush=True)
+            del net
+            torch.cuda.empty_cache()
         for scheme, (source, path) in sources.items():
             state = torch.load(path, map_location='cpu', weights_only=False)
             if state['scheme'] != scheme or state['global_step'] != 2000 or state['epoch'] != 20:
@@ -106,6 +125,24 @@ def main():
             torch.cuda.empty_cache()
         summary = compare(rows)
         atomic_json(log.directory/'summary.json', summary)
+        if args.official_checkpoint:
+            comparisons = {scheme+'_minus_Official': compare({'P0': rows['Official'], 'P3': rows[scheme]})
+                           for scheme in ('P0', 'P3')}
+            # In each pair's schema P0 denotes reference Official and P3 denotes named candidate.
+            atomic_json(log.directory/'official_comparisons.json', {
+                'schema': 'P0=Official reference, P3=named candidate; P3_minus_P0=candidate minus Official',
+                'comparisons': comparisons})
+            official_lines = ['# Final weights versus original official x4 weights', '',
+                             '| Dataset | Official | P0 | P3 | P0-Official | P3-Official |',
+                             '|---|---:|---:|---:|---:|---:|']
+            for ds in COUNTS:
+                ref = comparisons['P0_minus_Official'][ds]['psnr']['P0']
+                d0 = comparisons['P0_minus_Official'][ds]['psnr']['P3_minus_P0']['mean']
+                d3 = comparisons['P3_minus_Official'][ds]['psnr']['P3_minus_P0']['mean']
+                official_lines.append(f"| {ds} | {ref:.8f} | {summary[ds]['psnr']['P0']:.8f} | {summary[ds]['psnr']['P3']:.8f} | {d0:+.8f} | {d3:+.8f} |")
+            official_report = '\n'.join(official_lines)+'\n'
+            (log.directory/'official_summary.md').write_text(official_report, encoding='utf-8')
+            print(official_report, flush=True)
         with (log.directory/'paired_images.csv').open('w', encoding='utf-8', newline='') as stream:
             writer = csv.writer(stream)
             writer.writerow(['dataset', 'image', 'P0_psnr', 'P3_psnr', 'delta_psnr', 'P0_ssim', 'P3_ssim', 'delta_ssim'])
