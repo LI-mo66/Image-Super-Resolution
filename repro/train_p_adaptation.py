@@ -226,6 +226,9 @@ def main():
     config = configuration(args, plan_hash)
     if config['git_dirty']:
         raise ValueError('Refuse training on dirty candidate code')
+    # Candidate initialization is seeded; reset again afterward for matched runtime RNG.
+    torch.manual_seed(args.seed)
+    torch.cuda.manual_seed_all(args.seed)
     net = make_net(args.scheme, args.checkpoint, args.device)
     optimizer = torch.optim.Adam(net.parameters(), lr=args.lr, betas=(.9, .999))
     torch.manual_seed(args.seed)

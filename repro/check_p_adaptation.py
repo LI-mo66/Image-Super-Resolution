@@ -47,6 +47,8 @@ def run(args):
                       scheme=args.scheme, resume_start_epoch=None, resume_start_step=None)
         with RunLogger(out, config['experiment_name'], 4, 1, config) as log:
             torch.cuda.reset_peak_memory_stats(torch.device(args.device))
+            torch.manual_seed(1)
+            torch.cuda.manual_seed_all(1)
             net = make_net(args.scheme, args.checkpoint, args.device).eval()
             params = sum(p.numel() for p in net.parameters())
             baseline = make_net('P0', args.checkpoint, args.device).eval()
