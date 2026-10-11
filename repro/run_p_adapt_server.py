@@ -131,7 +131,8 @@ def main():
     if len(set(protocol_hashes.values())) != 1:
         raise ValueError('Protocol files differ across pinned refs')
     shared_hashes={}
-    for source in ('LFMN/utility.py', 'repro/train_p_adaptation.py', 'repro/p_adapt_logging.py', 'repro/run_p_diagnostics.py'):
+    for source in ('LFMN/utility.py', 'repro/train_p_adaptation.py', 'repro/p_adapt_logging.py',
+                   'repro/run_p_diagnostics.py', 'repro/check_p_adaptation.py', 'repro/p_resume_audit.py'):
         hashes={scheme: hashlib.sha256(subprocess.check_output(['git','show',commit+':'+source],cwd=ROOT)).hexdigest() for scheme,commit in commits.items()}
         if len(set(hashes.values()))!=1:
             raise ValueError('Common source differs across pinned refs: '+source)
