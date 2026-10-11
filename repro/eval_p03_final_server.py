@@ -73,7 +73,7 @@ def main():
     if comparable(a['protocol_fingerprint']) != comparable(b['protocol_fingerprint']):
         raise ValueError('Training protocol mismatch')
     for field, path in [('model_sha256', ROOT/'LFMN/model/lfmn.py'),
-                        ('metric_source_sha256', ROOT/'repro/run_p_diagnostics.py'),
+                        ('metric_source_sha256', ROOT/'LFMN/utility.py'),
                         ('runner_sha256', ROOT/'repro/train_p_adaptation.py')]:
         if sha(path) != a['protocol_fingerprint'][field]:
             raise ValueError(f'Evaluation source differs from training: {field}')
