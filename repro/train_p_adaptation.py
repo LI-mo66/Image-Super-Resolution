@@ -99,8 +99,11 @@ def batch_from_plan(data_root, items, patch):
 
 
 def criterion(scheme, sr, hr):
+    if scheme == 'P3':
+        from p3_objective import normalized_mse
+        return normalized_mse(sr, hr)
     error = (sr - hr) / 255
-    return error.square().mean() if scheme == 'P3' else error.abs().mean()
+    return error.abs().mean()
 
 
 def evaluate(net, data_root, device, epoch, step, benchmark=False, limit=None):
@@ -179,7 +182,8 @@ def configuration(args, plan_hash):
             'pretrained_checkpoint': str(Path(args.checkpoint).resolve()), 'baseline_training_config': 'unknown',
             'initial_checkpoint_sha256': sha(args.checkpoint), 'batch_plan_sha256': plan_hash,
             'metric_protocol': metric, 'protocol_fingerprint': fingerprint,
-            'candidate_source_sha256': sha(ROOT / 'LFMN/model/lfmnp4.py') if args.scheme == 'P4' else None,
+            'candidate_source_sha256': sha(ROOT / 'LFMN/model/lfmnp4.py') if args.scheme == 'P4' else
+                                       (sha(ROOT / 'repro/p3_objective.py') if args.scheme == 'P3' else None),
             'resume_checkpoint': str(Path(args.resume).resolve()) if args.resume else None,
             'resume_start_epoch': None, 'resume_start_step': None, 'checks_report': args.checks_report,
             'benchmark_final': args.benchmark_final}
@@ -215,6 +219,8 @@ def main():
         raise ValueError('Engineering report runner/data mismatch')
     if args.scheme == 'P4' and report.get('candidate_source_sha256') != sha(ROOT / 'LFMN/model/lfmnp4.py'):
         raise ValueError('Engineering report candidate source mismatch')
+    if args.scheme == 'P3' and report.get('candidate_source_sha256') != sha(ROOT / 'repro/p3_objective.py'):
+        raise ValueError('Engineering report objective source mismatch')
     torch.set_num_threads(4)
     plan, plan_hash = training_plan(args.data_root, args.steps, args.batch_size, args.patch_lr, args.seed)
     config = configuration(args, plan_hash)
