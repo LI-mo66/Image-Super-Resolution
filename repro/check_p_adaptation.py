@@ -27,7 +27,8 @@ def run(args):
               'gpu': torch.cuda.get_device_name(torch.device(args.device)), 'torch': torch.__version__,
               'model_sha256': sha(ROOT / 'LFMN/model/lfmn.py'),
               'runner_sha256': sha(ROOT / 'repro/train_p_adaptation.py'),
-              'candidate_source_sha256': sha(ROOT / 'LFMN/model/lfmnp4.py') if args.scheme == 'P4' else None,
+              'candidate_source_sha256': sha(ROOT / 'LFMN/model/lfmnp4.py') if args.scheme == 'P4' else
+                                         (sha(ROOT / 'repro/p3_objective.py') if args.scheme == 'P3' else None),
               'data_root': str(Path(args.data_root).resolve()), 'checks': {}, 'performance_evidence': False}
     path = out / 'check_report.json'
     atomic_json(path, report)
