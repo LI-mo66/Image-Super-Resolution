@@ -1,5 +1,6 @@
 """Mandatory server engineering gates before P paired adaptation."""
 import argparse
+import copy
 import csv
 import json
 import os
@@ -16,6 +17,7 @@ from train_p_adaptation import (ROOT, atomic_json, batch_from_plan, configuratio
 from p_adapt_logging import RunLogger
 from check_p_adapt_logging import run_checks as logging_checks
 from model.lfmn import Net as Baseline
+from p_resume_audit import cpu_tree, assert_exact_tree, compare_states, deterministic_cpu_replay
 
 
 def run(args):
@@ -114,11 +116,15 @@ def run(args):
             with torch.inference_mode():
                 reference = net(lr[:1].to(args.device)).cpu()
             loaded = torch.load(checkpoint, map_location='cpu', weights_only=False)
+            source_model = cpu_tree(net.state_dict())
+            source_optimizer = cpu_tree(optimizer.state_dict())
+            assert_exact_tree(source_model, loaded['model'], 'serialized_model')
+            assert_exact_tree(source_optimizer, loaded['optimizer'], 'serialized_optimizer')
             restored = make_net(args.scheme, args.checkpoint, args.device)
             restored.load_state_dict(loaded['model'], strict=True)
             restored.eval()
             restored_optimizer = torch.optim.Adam(restored.parameters(), lr=1e-5, betas=(.9, .999))
-            restored_optimizer.load_state_dict(loaded['optimizer'])
+            restored_optimizer.load_state_dict(copy.deepcopy(loaded['optimizer']))
             with torch.inference_mode():
                 torch.testing.assert_close(restored(lr[:1].to(args.device)).cpu(), reference, rtol=0, atol=0)
             assert len(restored_optimizer.state) == len(optimizer.state)
@@ -131,24 +137,51 @@ def run(args):
                         torch.testing.assert_close(recovered_state[parameter_id][key], value, rtol=0, atol=0)
                     else:
                         assert recovered_state[parameter_id][key] == value
-            for target, opt in ((net, optimizer), (restored, restored_optimizer)):
+            def gpu_update(target, opt):
                 torch.set_rng_state(loaded['torch_rng'])
                 torch.cuda.set_rng_state_all(loaded['cuda_rng'])
                 random.setstate(loaded['python_rng'])
                 target.train()
                 opt.zero_grad(set_to_none=True)
                 criterion(args.scheme, target(lr.to(args.device)), hr.to(args.device)).backward()
+                if any(p.grad is not None and not torch.isfinite(p.grad).all() for p in target.parameters()):
+                    raise FloatingPointError('Nonfinite GPU continuation gradient')
                 opt.step()
-            for key, value in net.state_dict().items():
-                recovered = restored.state_dict()[key]
-                if value.is_floating_point():
-                    torch.testing.assert_close(recovered, value, rtol=1e-4, atol=1e-5)
-                else:
-                    assert torch.equal(recovered, value)
+                return cpu_tree(target.state_dict())
+            direct = gpu_update(net, optimizer)
+            resumed = gpu_update(restored, restored_optimizer)
+            parameter_keys = set(dict(net.named_parameters()))
+            continuation = compare_states(resumed, direct, parameter_keys)
+            report['checks']['gpu_continuation'] = continuation
+            if not continuation['within_tolerance']:
+                # Only the known prototype-buffer reproducibility limit can use
+                # this fallback. Parameter or unrelated buffer drift still fails.
+                if any(row['kind'] != 'buffer' or not row['key'].endswith('.means')
+                       for row in continuation['mismatches']):
+                    raise AssertionError(f'Unexplained continuation mismatch: {continuation}')
+                repeats = []
+                for repeat in range(2):
+                    net.load_state_dict(source_model, strict=True)
+                    optimizer.load_state_dict(copy.deepcopy(source_optimizer))
+                    replayed = gpu_update(net, optimizer)
+                    repeats.append(compare_states(replayed, direct, parameter_keys))
+                    print(f'GPU same-instance control repeat {repeat + 1}: {repeats[-1]}', flush=True)
+                report['checks']['gpu_same_instance_repeat_controls'] = repeats
+                if not any(any(row['key'].endswith('.means') for row in control['mismatches']) for control in repeats):
+                    raise AssertionError('GPU repeat controls do not explain prototype drift; keep gate blocked')
+                print('GPU prototype repeatability limitation reproduced without checkpoint reconstruction. '
+                      'Running exact CPU replay of the same real batch; production training is unchanged.', flush=True)
+                report['checks']['cpu_resume_replay'] = deterministic_cpu_replay(
+                    lambda: make_net(args.scheme, args.checkpoint, 'cpu'), source_model,
+                    source_optimizer, loaded, lr, hr,
+                    lambda prediction, target: criterion(args.scheme, prediction, target))
+                continuation_scope = 'Exact serialization + exact deterministic CPU replay; GPU prototype continuation is not bitwise reproducible'
+            else:
+                continuation_scope = 'GPU next update within registered tolerance; exact serialization and eval output'
             report['checks']['real_batch_validation_checkpoint'] = {'passed': True, 'batch_hash': bh,
                          'finite_loss_gradient': True, 'strict_reload': True,
                          'optimizer_moments_restored_exactly': True,
-                         'next_update_resume_matches_rtol_1e4_atol_1e5': True,
+                         'next_update_verification_scope': continuation_scope,
                          'new_bias_upstream_grad_steps': upstream}
             report['checks']['gpu_peak_allocated_bytes'] = torch.cuda.max_memory_allocated(torch.device(args.device))
         report['status'] = 'verified'
